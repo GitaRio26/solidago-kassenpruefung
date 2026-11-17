@@ -1,0 +1,3 @@
+deu.traineddata: Deutsches Sprachmodell für Tesseract (tessdata_fast, LSTM),
+Quelle: https://github.com/tesseract-ocr/tessdata_fast – Lizenz: Apache License 2.0.
+Wird mit der App ausgeliefert, damit die Texterkennung ohne Internet funktioniert.

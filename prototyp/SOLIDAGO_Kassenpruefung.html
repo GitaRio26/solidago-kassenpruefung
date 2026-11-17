@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOLIDAGO Kassenprüfung</title>
+<style>
+:root{
+  --green:#3f9a45; --green-d:#2c7432; --green-l:#e8f4e9;
+  --red:#c0392b; --red-l:#fbeaea; --amber:#b9770e; --amber-l:#fdf3e1;
+  --ink:#1d2421; --muted:#66706b; --line:#d8dedb; --bg:#f5f7f6; --card:#fff;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font:14px/1.45 "Segoe UI",system-ui,-apple-system,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:#fff;border-radius:6px;padding:6px 12px;color:var(--ink)}
+button:hover{border-color:#aab3ae;background:#fafbfa}
+button.primary{background:var(--green);border-color:var(--green);color:#fff}
+button.primary:hover{background:var(--green-d)}
+button.danger{color:var(--red)}
+button.small{padding:3px 8px;font-size:12px}
+button.icon{padding:2px 7px;border:none;background:transparent;color:var(--muted)}
+button.icon:hover{color:var(--red);background:transparent}
+input,select,textarea{font:inherit;border:1px solid var(--line);border-radius:5px;padding:5px 7px;background:#fff;color:var(--ink);width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid #9fd1a3;border-color:var(--green)}
+textarea{resize:vertical}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+h1,h2,h3{margin:0}
+h2{font-size:18px}
+h3{font-size:15px}
+
+header.app{display:flex;align-items:center;gap:22px;background:#fff;border-bottom:1px solid var(--line);padding:0 20px;height:54px;position:sticky;top:0;z-index:10}
+.logo{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--green);font-size:18px;letter-spacing:.5px}
+.logo .dot{width:14px;height:14px;border-radius:50%;background:#f2b84b;box-shadow:6px 6px 0 -1px var(--green)}
+.logo small{font-weight:400;color:var(--muted);font-size:13px;letter-spacing:0}
+nav.tabs{display:flex;gap:4px;height:100%}
+nav.tabs button{border:none;border-radius:0;background:none;border-bottom:3px solid transparent;padding:0 14px;height:100%;color:var(--muted);font-weight:600}
+nav.tabs button.active{color:var(--green-d);border-bottom-color:var(--green)}
+.spacer{flex:1}
+.savestate{font-size:12px;color:var(--muted)}
+
+main{padding:20px;max-width:1500px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+.grid{display:grid;gap:12px}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+.row{display:flex;gap:10px;align-items:center}
+.muted{color:var(--muted)}
+.right{text-align:right}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hint{font-size:12px;color:var(--muted)}
+
+/* Klienten-Layout */
+.split{display:grid;grid-template-columns:290px 1fr;gap:18px;align-items:start}
+.clist{padding:8px}
+.clist .item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;cursor:pointer}
+.clist .item:hover{background:var(--bg)}
+.clist .item.active{background:var(--green-l)}
+.clist .nr{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px;min-width:34px}
+.clist .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 8px;border-radius:20px;white-space:nowrap}
+.b-ok{background:var(--green-l);color:var(--green-d)}
+.b-err{background:var(--red-l);color:var(--red)}
+.b-open{background:var(--amber-l);color:var(--amber)}
+.b-none{background:#eef0ef;color:var(--muted)}
+.sdot{width:10px;height:10px;border-radius:50%;flex:none}
+.s-ok{background:var(--green)}.s-err{background:var(--red)}.s-open{background:#e0a82e}.s-none{background:#c9cfcc}
+
+table.t{width:100%;border-collapse:collapse}
+table.t th{font-size:12px;font-weight:600;color:var(--muted);text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.t th.num,table.lines th.num{text-align:right}
+table.t td{padding:7px 8px;border-bottom:1px solid #eef1ef;vertical-align:middle}
+table.t tr.click{cursor:pointer}
+table.t tr.click:hover td{background:#fafbfa}
+table.t tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:none}
+
+/* Antrags-Editor */
+.editor{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.85fr);gap:16px;align-items:start}
+.editor.noviewer{grid-template-columns:1fr}
+.editor.noviewer .viewer{display:none}
+table.lines{width:100%;border-collapse:collapse;font-size:13px}
+table.lines th{font-size:11px;color:var(--muted);font-weight:600;text-align:left;padding:4px 3px;white-space:nowrap;border-bottom:1px solid var(--line)}
+table.lines th.grp{text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--line)}
+table.lines td{padding:3px;border-bottom:1px solid #eef1ef;vertical-align:middle}
+table.lines input,table.lines select{padding:4px 5px;font-size:13px}
+table.lines td.sep{border-left:2px solid var(--line)}
+table.lines tr.err td{background:var(--red-l)}
+table.lines tr.open td{background:#fffaf0}
+table.lines tr.done td{background:#f3f8f3}
+table.lines .st{font-size:15px;text-align:center;width:26px}
+table.lines tfoot td{font-weight:700;padding:7px 4px;border-top:2px solid var(--line);border-bottom:none}
+.w-nr{width:42px}.w-dt{width:132px}.w-kat{width:104px}.w-amt{width:92px}.w-chk{width:30px;text-align:center}
+.issues{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.issue{padding:7px 10px;border-radius:6px;font-size:13px;display:flex;gap:8px}
+.issue.err{background:var(--red-l);color:#7d241b}
+.issue.warn{background:var(--amber-l);color:#7a4f0a}
+.issue.solved{background:#eef0ef;color:var(--muted);text-decoration:line-through}
+
+.viewer{position:sticky;top:70px;height:calc(100vh - 90px);display:flex;flex-direction:column;padding:10px}
+.docbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
+.chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:20px;padding:2px 4px 2px 10px;font-size:12px;cursor:pointer;background:#fff;max-width:200px}
+.chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip.active{border-color:var(--green);background:var(--green-l)}
+.stage{flex:1;border:1px solid var(--line);border-radius:8px;background:#e9ecea;overflow:auto;display:flex;align-items:flex-start;justify-content:center;position:relative}
+.stage img{display:block;transform-origin:center center;margin:10px auto;max-width:none}
+.stage iframe{width:100%;height:100%;border:none;background:#fff}
+.stage .empty{margin:auto;text-align:center;color:var(--muted);padding:30px}
+.drop{outline:3px dashed var(--green);outline-offset:-6px}
+
+/* Bericht-Tab */
+.sigpad{border:1px dashed #aab3ae;border-radius:6px;background:#fff;touch-action:none;width:100%;height:110px;display:block;cursor:crosshair}
+
+/* Druck */
+#print{display:none}
+@media print{
+  @page{size:A4;margin:16mm 15mm 16mm 18mm}
+  body{background:#fff}
+  header.app,main,#modal{display:none!important}
+  #print{display:block;font:10pt/1.35 Arial,Helvetica,sans-serif;color:#000}
+}
+.pg{page-break-after:always}
+.pg:last-child{page-break-after:auto}
+.ph{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #3f9a45;padding-bottom:6px;margin-bottom:14px}
+.ph .l{font-size:17pt;font-weight:700;color:#3f9a45;letter-spacing:.5px}
+.ph .r{font-size:9pt;text-align:right;color:#2c7432;font-weight:600}
+#print h1{font-size:15pt;margin:8px 0 10px}
+#print h2{font-size:12.5pt;margin:16px 0 6px}
+#print h3{font-size:11pt;margin:12px 0 4px}
+#print .fl{border-bottom:1px solid #000;display:inline-block;min-width:120px;padding:0 4px}
+#print .box{font-size:12pt;margin-right:4px}
+#print p{margin:4px 0}
+#print .opt{margin:3px 0}
+#print .ind{margin-left:24px}
+#print table.p{width:100%;border-collapse:collapse;font-size:9pt;margin:4px 0 8px;page-break-inside:auto}
+#print table.p th{background:#e8f4e9;text-align:left;padding:3px 5px;border:1px solid #9aa59f;font-weight:700}
+#print table.p td{padding:3px 5px;border:1px solid #c3cbc6;vertical-align:top}
+#print table.p tr{page-break-inside:avoid}
+#print table.p tr.e td{background:#fbeaea}
+#print table.p tfoot td{font-weight:700;background:#f4f6f5}
+#print .sigs{display:flex;gap:30px;margin-top:6px}
+#print .sig{flex:1}
+#print .sig .img{height:46px;border-bottom:1px solid #000;display:flex;align-items:flex-end}
+#print .sig img{max-height:44px;max-width:100%}
+#print .sig .cap{font-size:9pt}
+#print .cblock{page-break-inside:avoid}
+#print .foot{font-size:8pt;color:#555;margin-top:14px;border-top:1px solid #ccc;padding-top:4px}
+
+/* Modal */
+#modal{position:fixed;inset:0;background:rgba(20,30,25,.45);display:none;align-items:center;justify-content:center;z-index:50}
+#modal.show{display:flex}
+#modal .card{width:min(520px,92vw);box-shadow:0 10px 40px rgba(0,0,0,.2)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1d2421;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.kpi .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.kpi .k{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<header class="app">
+  <div class="logo"><span class="dot"></span>SOLIDAGO <small>Kassenprüfung</small></div>
+  <nav class="tabs" id="tabs">
+    <button data-tab="klienten" class="active">Klienten &amp; Anträge</button>
+    <button data-tab="pruefung">Prüfübersicht</button>
+    <button data-tab="bericht">Bericht</button>
+    <button data-tab="daten">Daten</button>
+  </nav>
+  <div class="spacer"></div>
+  <span class="savestate" id="savestate"></span>
+</header>
+
+<main id="main"></main>
+<div id="print"></div>
+<div id="modal"><div class="card" id="modalcard"></div></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="filepick" accept="image/*,application/pdf" multiple style="display:none">
+<input type="file" id="importpick" accept=".json,application/json" style="display:none">
+
+<script>
+"use strict";
+/* ============================================================
+   Konstanten & Hilfsfunktionen
+   ============================================================ */
+const CATS = [
+  ["PRAEV","Prävention"],["AMB","Ambulant"],["STAT","stationär"],
+  ["ZAB","Zahnarzt"],["ZAER","Zahnersatz"],["AHMIT","Arznei u. Heilmittel"]
+];
+const CATNAME = Object.fromEntries(CATS);
+const EPS = 0.005;
+
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const uid = () => Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtEUR = n => (n==null || isNaN(n)) ? "" : n.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtEURc = n => (n==null || isNaN(n)) ? "–" : fmtEUR(n) + " €";
+function parseAmount(v){
+  if(v==null) return null;
+  let s = String(v).trim().replace(/[€\s]/g,"");
+  if(!s) return null;
+  if(s.includes(",")) s = s.replace(/\./g,"").replace(",",".");
+  const n = Number(s);
+  return isFinite(n) ? Math.round(n*100)/100 : null;
+}
+function fmtDate(iso){
+  if(!iso) return "";
+  const [y,m,d] = iso.split("-");
+  return `${d}.${m}.${y}`;
+}
+const todayISO = () => new Date().toISOString().slice(0,10);
+const sum = arr => Math.round(arr.reduce((a,b)=>a+(b||0),0)*100)/100;
+const neq = (a,b) => Math.abs((a||0)-(b||0)) > EPS;
+const norm = s => String(s||"").toLowerCase().replace(/[^a-z0-9äöüß]+/g," ").trim();
+
+function toast(msg){
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove("show"), 2200);
+}
+
+/* ============================================================
+   Speicherung (IndexedDB, lokal im Browser)
+   ============================================================ */
+const DB = {
+  db:null,
+  open(){
+    return new Promise((res,rej)=>{
+      const r = indexedDB.open("solidago-kassenpruefung", 1);
+      r.onupgradeneeded = () => { const d=r.result; d.createObjectStore("kv"); d.createObjectStore("files"); };
+      r.onsuccess = () => { DB.db = r.result; res(); };
+      r.onerror = () => rej(r.error);
+    });
+  },
+  tx(store, mode, fn){
+    return new Promise((res,rej)=>{
+      const t = DB.db.transaction(store, mode); const s = t.objectStore(store);
+      const out = fn(s);
+      t.oncomplete = () => res(out && out.result !== undefined ? out.result : undefined);
+      t.onerror = () => rej(t.error);
+    });
+  },
+  get(store,key){ return new Promise((res,rej)=>{ const r = DB.db.transaction(store).objectStore(store).get(key); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); },
+  put(store,key,val){ return DB.tx(store,"readwrite",s=>s.put(val,key)); },
+  del(store,key){ return DB.tx(store,"readwrite",s=>s.delete(key)); },
+  clear(store){ return DB.tx(store,"readwrite",s=>s.clear()); },
+  keys(store){ return new Promise((res,rej)=>{ const r = DB.db.transaction(store).objectStore(store).getAllKeys(); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+};
+
+function emptyState(){
+  const y = new Date().getFullYear() - 1;
+  return {
+    version:1,
+    settings:{
+      verein:"Gemeinschaft Kräuterfreunde Dresden",
+      jahr:y, pruefDatum:todayISO(), von:`${y}-01-01`, bis:`${y}-12-31`,
+      pruefer1:"", pruefer2:"", ort:"", kassier:"",
+      vollst:"auto", gekennzeichnet:true, entlastung:"auto",
+      weitererTermin:"", ergebnisZusatz:"", bemerkungen:"",
+      sig1:null, sig2:null
+    },
+    clients:[], antraege:[], files:{}
+  };
+}
+let S = emptyState();
+let saveTimer = null;
+function save(){
+  $("#savestate").textContent = "speichert …";
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async ()=>{
+    try{ await DB.put("kv","state",S); $("#savestate").textContent = "✓ lokal gespeichert"; }
+    catch(e){ $("#savestate").textContent = "⚠ Speichern fehlgeschlagen"; console.error(e); }
+  }, 300);
+}
+
+/* ============================================================
+   Prüflogik
+   ============================================================ */
+function isEmptyLine(z){ return z.betragAntrag==null && z.betragBeleg==null && !z.leistung; }
+
+/* Liefert für jeden Antrag & Klienten: Summen, Status, Liste der Befunde */
+function computeAll(){
+  const res = { antrag:{}, client:{}, issues:[] };
+  // Datei-Hashes für identische Scans
+  const hashUse = {};
+  for(const a of S.antraege) for(const fid of a.docs||[]){
+    const h = S.files[fid]?.hash; if(!h) continue;
+    (hashUse[h] = hashUse[h] || []).push({a, fid});
+  }
+
+  for(const a of S.antraege){
+    const lines = a.zeilen.filter(z=>!isEmptyLine(z));
+    const sA = sum(lines.map(z=>z.betragAntrag));
+    const sB = sum(lines.map(z=>z.betragBeleg));
+    const catSums = Object.fromEntries(CATS.map(([k])=>[k, sum(lines.filter(z=>z.kat===k).map(z=>z.betragAntrag))]));
+    const iss = [];
+    const lineState = {};
+    if(a.gesamt!=null && neq(a.gesamt, sA)){
+      iss.push({lvl:"err", type:"rechnung", text:`Rechenfehler im Antrag: Summe der Zeilen ${fmtEURc(sA)} ≠ beantragte Gesamtsumme ${fmtEURc(a.gesamt)} (Differenz ${fmtEURc(a.gesamt - sA)}).`, solved:!!a.gesamtGeklaert});
+    }
+    for(const z of lines){
+      let st = "ok";
+      if(z.betragBeleg==null){
+        st = "open";
+        iss.push({lvl:"warn", type:"fehlt", z, text:`Beleg Nr. ${z.nr||"?"}: kein Belegbetrag erfasst (Beleg fehlt oder noch nicht geprüft).`, solved:z.geklaert});
+      } else if(z.betragAntrag==null){
+        st = "err";
+        iss.push({lvl:"err", type:"abw", z, text:`Beleg Nr. ${z.nr||"?"}: Beleg über ${fmtEURc(z.betragBeleg)} ohne Betrag im Antrag.`, solved:z.geklaert});
+      } else if(neq(z.betragAntrag, z.betragBeleg)){
+        st = "err";
+        iss.push({lvl:"err", type:"abw", z, text:`Beleg Nr. ${z.nr||"?"}: Antrag ${fmtEURc(z.betragAntrag)}, Beleg ${fmtEURc(z.betragBeleg)} – Differenz ${fmtEURc(z.betragAntrag - z.betragBeleg)}.`, solved:z.geklaert});
+      }
+      lineState[z.id] = st;
+    }
+    // identische Scan-Dateien
+    for(const fid of a.docs||[]){
+      const h = S.files[fid]?.hash; const uses = h ? hashUse[h] : null;
+      if(uses && uses.length>1){
+        const others = uses.filter(u=>u.a.id!==a.id || u.fid!==fid);
+        for(const o of others){
+          const oc = S.clients.find(c=>c.id===o.a.clientId);
+          iss.push({lvl:"err", type:"datei", text:`Identische Scan-Datei „${S.files[fid].name}“ auch in Antrag vom ${fmtDate(o.a.datum)}${o.a.clientId!==a.clientId?` (Klient ${oc?.nr||""} ${oc?.name||""})`:""} eingereicht.`, solved:!!a.dateiGeklaert});
+        }
+      }
+    }
+    res.antrag[a.id] = {sA, sB, catSums, lines, issues:iss, lineState, count:lines.length};
+  }
+
+  // Doppelungen je Klient: gleiche Leistung + gleiches Datum (oder ohne Leistung: gleicher Betrag + Datum)
+  for(const c of S.clients){
+    const groups = {};
+    for(const a of S.antraege.filter(x=>x.clientId===c.id)){
+      for(const z of a.zeilen){
+        if(isEmptyLine(z)) continue;
+        const d = z.belegDatum || z.datum; if(!d) continue;
+        const key = z.leistung ? `L|${norm(z.leistung)}|${d}` : (z.betragBeleg!=null ? `B|${z.betragBeleg}|${d}` : null);
+        if(!key) continue;
+        (groups[key] = groups[key] || []).push({a,z});
+      }
+    }
+    for(const [key, g] of Object.entries(groups)){
+      if(g.length<2) continue;
+      const byLeistung = key.startsWith("L|");
+      // erste Einreichung gilt als korrekt, jede weitere ist die mögliche Doppelung
+      g.sort((x,y)=>(x.a.datum||"").localeCompare(y.a.datum||"") || (+x.z.nr||0)-(+y.z.nr||0));
+      for(const {a,z} of g.slice(1)){
+        const others = g.filter(o=>o.z!==z && g.indexOf(o)<g.findIndex(q=>q.z===z)).map(o=> o.a.id===a.id ? `Nr. ${o.z.nr} in diesem Antrag` : `Nr. ${o.z.nr} im Antrag vom ${fmtDate(o.a.datum)}`).join(", ");
+        const what = byLeistung ? `„${z.leistung}“ am ${fmtDate(z.belegDatum||z.datum)}` : `gleicher Betrag ${fmtEURc(z.betragBeleg)} am ${fmtDate(z.belegDatum||z.datum)} (Leistung nicht erfasst)`;
+        res.antrag[a.id].issues.push({lvl:"err", type:"doppelt", z, text:`Mögliche Doppelabrechnung – Beleg Nr. ${z.nr}: ${what}, bereits abgerechnet als ${others}.`, solved:z.geklaert});
+        if(!z.geklaert) res.antrag[a.id].lineState[z.id] = "err";
+      }
+    }
+  }
+
+  // Status je Antrag, je Klient, Gesamtliste
+  for(const a of S.antraege){
+    const r = res.antrag[a.id];
+    const open = r.issues.filter(i=>!i.solved);
+    r.status = r.count===0 ? "none" : open.some(i=>i.lvl==="err") ? "err" : open.some(i=>i.lvl==="warn") ? "open" : "ok";
+    for(const i of r.issues) res.issues.push({...i, antrag:a, client:S.clients.find(c=>c.id===a.clientId)});
+  }
+  for(const c of S.clients){
+    const as = S.antraege.filter(a=>a.clientId===c.id);
+    const rs = as.map(a=>res.antrag[a.id]);
+    const st = rs.length===0 ? "none" : rs.some(r=>r.status==="err") ? "err" : rs.some(r=>r.status==="open") ? "open" : rs.every(r=>r.status==="none") ? "none" : "ok";
+    res.client[c.id] = {
+      status:st, nAntraege:as.length, nBelege:sum(rs.map(r=>r.count)),
+      sAntrag:sum(as.map((a,i)=> a.gesamt!=null ? a.gesamt : rs[i].sA)),
+      sZeilen:sum(rs.map(r=>r.sA)), sBeleg:sum(rs.map(r=>r.sB)),
+      nErr:rs.reduce((n,r)=>n+r.issues.filter(i=>!i.solved&&i.lvl==="err").length,0),
+      nWarn:rs.reduce((n,r)=>n+r.issues.filter(i=>!i.solved&&i.lvl==="warn").length,0)
+    };
+  }
+  return res;
+}
+const STATUS = {
+  ok:["b-ok","✓ in Ordnung","s-ok"],
+  err:["b-err","✗ Beanstandung","s-err"],
+  open:["b-open","● offen","s-open"],
+  none:["b-none","– keine Daten","s-none"]
+};
+const badge = st => `<span class="badge ${STATUS[st][0]}">${STATUS[st][1]}</span>`;
+
+/* ============================================================
+   Routing / Ansicht
+   ============================================================ */
+const view = { tab:"klienten", clientId:null, antragId:null, docId:null, zoom:1, rot:0, showViewer:true };
+let objURL = null;
+
+$("#tabs").addEventListener("click", e=>{
+  const b = e.target.closest("button[data-tab]"); if(!b) return;
+  view.tab = b.dataset.tab; view.antragId = null; render();
+});
+function render(){
+  $$("#tabs button").forEach(b=>b.classList.toggle("active", b.dataset.tab===view.tab));
+  const R = computeAll();
+  const m = $("#main");
+  if(view.tab==="klienten") view.antragId ? renderEditor(m,R) : renderKlienten(m,R);
+  else if(view.tab==="pruefung") renderPruefung(m,R);
+  else if(view.tab==="bericht") renderBericht(m,R);
+  else renderDaten(m,R);
+}
+
+/* ---------------- Klienten ---------------- */
+function renderKlienten(m,R){
+  const clients = [...S.clients].sort((a,b)=>(+a.nr||0)-(+b.nr||0) || a.name.localeCompare(b.name));
+  if(!view.clientId && clients.length) view.clientId = clients[0].id;
+  const c = S.clients.find(x=>x.id===view.clientId);
+  m.innerHTML = `
+  <div class="split">
+    <div class="card clist">
+      <div class="row" style="justify-content:space-between;padding:4px 6px 10px">
+        <h3>Klienten <span class="muted" style="font-weight:400">(${S.clients.length})</span></h3>
+        <button class="small primary" id="addClient">+ Klient</button>
+      </div>
+      ${clients.length ? clients.map(x=>`
+        <div class="item ${x.id===view.clientId?"active":""}" data-cid="${x.id}">
+          <span class="sdot ${STATUS[R.client[x.id].status][2]}"></span>
+          <span class="nr">${esc(x.nr)}</span><span class="nm">${esc(x.name)||"<i class='muted'>ohne Namen</i>"}</span>
+        </div>`).join("") : `<p class="hint" style="padding:6px">Noch keine Klienten. Lege den ersten an – oder lade unter „Daten“ Beispieldaten.</p>`}
+    </div>
+    <div>${c ? clientDetail(c,R) : `<div class="card"><p class="muted">Kein Klient ausgewählt.</p></div>`}</div>
+  </div>`;
+  $("#addClient").onclick = ()=>{
+    const c = {id:uid(), nr:"", name:"", adresse:""};
+    S.clients.push(c); view.clientId = c.id; save(); render();
+    setTimeout(()=>$("#c_nr")?.focus(), 0);
+  };
+  $$(".clist .item").forEach(el=>el.onclick=()=>{ view.clientId = el.dataset.cid; render(); });
+  if(!c) return;
+  $$("[data-cf]").forEach(inp=>inp.onchange=()=>{ c[inp.dataset.cf] = inp.value.trim(); save(); render(); });
+  $("#delClient").onclick = ()=>confirmBox(`Klient „${c.name||c.nr}“ mit allen Anträgen löschen?`, ()=>{
+    S.antraege.filter(a=>a.clientId===c.id).forEach(a=>(a.docs||[]).forEach(f=>deleteFile(f)));
+    S.antraege = S.antraege.filter(a=>a.clientId!==c.id);
+    S.clients = S.clients.filter(x=>x.id!==c.id); view.clientId=null; save(); render();
+  });
+  $("#addAntrag").onclick = ()=>{
+    const a = newAntrag(c.id); S.antraege.push(a); save(); openAntrag(a.id);
+  };
+  $$("tr[data-aid]").forEach(tr=>tr.onclick=e=>{
+    if(e.target.closest("button")) return; openAntrag(tr.dataset.aid);
+  });
+  $$("button[data-delaid]").forEach(b=>b.onclick=()=>{
+    const a = S.antraege.find(x=>x.id===b.dataset.delaid);
+    confirmBox(`Antrag vom ${fmtDate(a.datum)||"(ohne Datum)"} löschen?`, ()=>{
+      (a.docs||[]).forEach(f=>deleteFile(f));
+      S.antraege = S.antraege.filter(x=>x.id!==a.id); save(); render();
+    });
+  });
+}
+function clientDetail(c,R){
+  const as = S.antraege.filter(a=>a.clientId===c.id).sort((a,b)=>(a.datum||"").localeCompare(b.datum||""));
+  const rc = R.client[c.id];
+  return `
+  <div class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <h2>${esc(c.name)||"Neuer Klient"}</h2>
+      <div class="row">${badge(rc.status)}<button class="small danger" id="delClient">Klient löschen</button></div>
+    </div>
+    <div class="grid" style="grid-template-columns:140px 1fr 1.4fr">
+      <div><label>Mitgliedsnummer</label><input id="c_nr" data-cf="nr" value="${esc(c.nr)}"></div>
+      <div><label>Name</label><input data-cf="name" value="${esc(c.name)}"></div>
+      <div><label>Anschrift (optional)</label><input data-cf="adresse" value="${esc(c.adresse)}"></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div class="row" style="justify-content:space-between;margin-bottom:6px">
+      <h3>Anträge auf Auszahlung</h3>
+      <button class="primary" id="addAntrag">+ Neuer Antrag</button>
+    </div>
+    ${as.length ? `
+    <table class="t">
+      <thead><tr><th>Antrag vom</th><th class="num">Belege</th><th class="num">beantragt</th><th class="num">lt. Belegen</th><th class="num">Differenz</th><th>Scans</th><th>Ergebnis</th><th></th></tr></thead>
+      <tbody>${as.map(a=>{ const r=R.antrag[a.id]; const tot = a.gesamt!=null?a.gesamt:r.sA; return `
+        <tr class="click" data-aid="${a.id}">
+          <td><b>${fmtDate(a.datum)||"<i class='muted'>ohne Datum</i>"}</b></td>
+          <td class="num">${r.count}</td>
+          <td class="num">${fmtEURc(tot)}</td>
+          <td class="num">${fmtEURc(r.sB)}</td>
+          <td class="num" style="${neq(tot,r.sB)?"color:var(--red);font-weight:600":""}">${fmtEURc(tot-r.sB)}</td>
+          <td>${(a.docs||[]).length ? "📄 "+(a.docs||[]).length : "<span class='muted'>–</span>"}</td>
+          <td>${badge(r.status)}</td>
+          <td class="right"><button class="icon" title="Antrag löschen" data-delaid="${a.id}">🗑</button></td>
+        </tr>`;}).join("")}</tbody>
+      <tfoot><tr><td>Summe</td><td class="num">${rc.nBelege}</td><td class="num">${fmtEURc(rc.sAntrag)}</td><td class="num">${fmtEURc(rc.sBeleg)}</td><td class="num">${fmtEURc(rc.sAntrag-rc.sBeleg)}</td><td colspan="3"></td></tr></tfoot>
+    </table>` : `<p class="hint">Noch keine Anträge erfasst.</p>`}
+  </div>`;
+}
+function newAntrag(clientId){
+  return {id:uid(), clientId, datum:"", gesamt:null, anlage:false, docs:[], notiz:"",
+    zeilen:Array.from({length:10},(_,i)=>newZeile(i+1))};
+}
+function newZeile(nr){ return {id:uid(), nr, datum:"", kat:"AHMIT", betragAntrag:null, belegDatum:"", leistung:"", betragBeleg:null, geklaert:false, bemerkung:""}; }
+function openAntrag(id){
+  view.antragId = id; const a = S.antraege.find(x=>x.id===id);
+  view.docId = (a.docs||[])[0] || null; view.zoom = 1; view.rot = 0;
+  render(); window.scrollTo(0,0);
+}
+
+/* ---------------- Antrags-Editor ---------------- */
+function renderEditor(m,R){
+  const a = S.antraege.find(x=>x.id===view.antragId);
+  if(!a){ view.antragId=null; return render(); }
+  const c = S.clients.find(x=>x.id===a.clientId);
+  m.innerHTML = `
+  <div class="row" style="margin-bottom:14px;gap:14px">
+    <button id="back">← zurück</button>
+    <h2>Antrag auf Auszahlung · ${esc(c?.nr)} ${esc(c?.name)}</h2>
+    <span id="edStatus"></span>
+    <div class="spacer"></div>
+    <button id="toggleViewer">${view.showViewer?"Scan-Ansicht ausblenden":"Scan-Ansicht einblenden"}</button>
+  </div>
+  <div class="editor ${view.showViewer?"":"noviewer"}">
+    <div>
+      <div class="card">
+        <div class="grid" style="grid-template-columns:160px 190px 1fr;align-items:end">
+          <div><label>Antrag vom</label><input type="date" id="a_datum" value="${esc(a.datum)}"></div>
+          <div><label>Beantragte Gesamtsumme (€)</label><input id="a_gesamt" class="num" inputmode="decimal" value="${fmtEUR(a.gesamt)}" placeholder="z. B. 271,00"></div>
+          <div><label style="display:flex;gap:6px;align-items:center;margin:0 0 8px;font-size:13px;color:var(--ink)"><input type="checkbox" id="a_anlage" style="width:auto" ${a.anlage?"checked":""}> Anlage mit weiteren Rechnungen liegt bei</label></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:12px;padding:12px 10px;overflow-x:auto">
+        <table class="lines">
+          <thead>
+            <tr><th colspan="4" class="grp">laut Antrag</th><th colspan="3" class="grp" style="border-left:2px solid var(--line)">laut Beleg / Rechnung</th><th colspan="3"></th></tr>
+            <tr><th class="w-nr">Nr.</th><th class="w-dt">Beleg-Datum</th><th class="w-kat">Kategorie</th><th class="w-amt">Betrag €</th>
+                <th class="w-dt" style="border-left:2px solid var(--line)">Rechnungsdatum</th><th>Leistung / Produkt</th><th class="w-amt">Betrag €</th>
+                <th class="st"></th><th class="w-chk" title="Befund geprüft und geklärt">geklärt</th><th></th></tr>
+          </thead>
+          <tbody id="lines"></tbody>
+          <tfoot id="linesFoot"></tfoot>
+        </table>
+        <div class="row" style="margin-top:10px">
+          <button class="small" id="addLine" style="white-space:nowrap">+ Zeile</button>
+          <span class="hint">Tipp: Rechnungsdatum leer lassen = wie Beleg-Datum. Leere Zeilen werden ignoriert. Unter „Leistung / Produkt“ einen kurzen Begriff eintragen – daran werden Doppelungen erkannt.</span>
+        </div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <h3 style="margin-bottom:6px">Befunde</h3>
+        <div id="issues" class="issues"></div>
+        <div style="margin-top:12px"><label>Notiz zum Antrag (erscheint im Bericht)</label><textarea id="a_notiz" rows="2">${esc(a.notiz)}</textarea></div>
+      </div>
+    </div>
+    <div class="card viewer" id="viewer"></div>
+  </div>`;
+  $("#back").onclick = ()=>{ view.antragId=null; render(); };
+  $("#toggleViewer").onclick = ()=>{ view.showViewer=!view.showViewer; render(); };
+  $("#a_datum").onchange = e=>{
+    const old = a.datum; a.datum = e.target.value;
+    save(); refreshEditor();
+  };
+  $("#a_gesamt").onchange = e=>{ a.gesamt = parseAmount(e.target.value); e.target.value = fmtEUR(a.gesamt); save(); refreshEditor(); };
+  $("#a_anlage").onchange = e=>{ a.anlage = e.target.checked; save(); };
+  $("#a_notiz").onchange = e=>{ a.notiz = e.target.value; save(); };
+  $("#addLine").onclick = ()=>{
+    const last = a.zeilen[a.zeilen.length-1];
+    const z = newZeile((+last?.nr||a.zeilen.length)+1); if(last){ z.datum = last.datum; z.kat = last.kat; }
+    a.zeilen.push(z); save(); drawLines(a); refreshEditor();
+    $(`#lines tr[data-zid="${z.id}"] [data-f="betragAntrag"]`)?.focus();
+  };
+  drawLines(a); refreshEditor(); drawViewer(a);
+}
+function drawLines(a){
+  $("#lines").innerHTML = a.zeilen.map(z=>`
+    <tr data-zid="${z.id}">
+      <td><input data-f="nr" value="${esc(z.nr)}" style="text-align:center"></td>
+      <td><input type="date" data-f="datum" value="${esc(z.datum)}"></td>
+      <td><select data-f="kat" title="${esc(CATNAME[z.kat])}">${CATS.map(([k,n])=>`<option value="${k}" ${z.kat===k?"selected":""} title="${n}">${k}</option>`).join("")}</select></td>
+      <td><input data-f="betragAntrag" class="num" inputmode="decimal" value="${fmtEUR(z.betragAntrag)}"></td>
+      <td class="sep"><input type="date" data-f="belegDatum" value="${esc(z.belegDatum)}"></td>
+      <td><input data-f="leistung" value="${esc(z.leistung)}" placeholder="z. B. Physiotherapie"></td>
+      <td><input data-f="betragBeleg" class="num" inputmode="decimal" value="${fmtEUR(z.betragBeleg)}"></td>
+      <td class="st" data-st></td>
+      <td class="w-chk"><input type="checkbox" data-f="geklaert" ${z.geklaert?"checked":""} style="width:auto" title="Befund geprüft und geklärt"></td>
+      <td><button class="icon" data-del title="Zeile löschen">✕</button></td>
+    </tr>`).join("");
+  $$("#lines tr").forEach(tr=>{
+    const z = a.zeilen.find(x=>x.id===tr.dataset.zid);
+    $$("[data-f]",tr).forEach(inp=>inp.onchange=()=>{
+      const f = inp.dataset.f;
+      if(f==="betragAntrag"||f==="betragBeleg"){ z[f] = parseAmount(inp.value); inp.value = fmtEUR(z[f]); }
+      else if(f==="geklaert") z[f] = inp.checked;
+      else z[f] = inp.value.trim();
+      if(f==="kat") inp.title = CATNAME[z.kat];
+      // Komfort: Betrag lt. Antrag erfasst und Datum leer -> vom Antragsdatum/letzter Zeile vorbelegen
+      if(f==="betragAntrag" && !z.datum){
+        const prev = a.zeilen.slice(0, a.zeilen.indexOf(z)).reverse().find(x=>x.datum);
+        if(prev){ z.datum = prev.datum; $("[data-f=datum]",tr).value = z.datum; }
+      }
+      save(); refreshEditor();
+    });
+    $("[data-del]",tr).onclick = ()=>{ a.zeilen = a.zeilen.filter(x=>x!==z); save(); drawLines(a); refreshEditor(); };
+  });
+  // Enter = nächste Zeile, gleiche Spalte
+  $("#lines").onkeydown = e=>{
+    if(e.key!=="Enter" || !e.target.dataset.f) return;
+    e.preventDefault();
+    const tr = e.target.closest("tr").nextElementSibling;
+    const nxt = tr && $(`[data-f="${e.target.dataset.f}"]`, tr);
+    if(nxt){ nxt.focus(); nxt.select?.(); } else e.target.blur();
+  };
+}
+function refreshEditor(){
+  const a = S.antraege.find(x=>x.id===view.antragId); if(!a) return;
+  const R = computeAll(); const r = R.antrag[a.id];
+  $("#edStatus").innerHTML = badge(r.status);
+  $$("#lines tr").forEach(tr=>{
+    const z = a.zeilen.find(x=>x.id===tr.dataset.zid);
+    const st = isEmptyLine(z) ? "" : (z.geklaert && r.lineState[z.id]!=="ok") ? "done" : r.lineState[z.id];
+    tr.className = st==="err"?"err":st==="open"?"open":st==="done"?"done":"";
+    $("[data-st]",tr).innerHTML = st==="ok"?"<span style='color:var(--green)'>✓</span>":st==="err"?"<span style='color:var(--red)'>✗</span>":st==="open"?"<span style='color:#e0a82e'>●</span>":st==="done"?"<span title='geklärt'>☑</span>":"";
+  });
+  const tot = a.gesamt!=null ? a.gesamt : r.sA;
+  $("#linesFoot").innerHTML = `
+    <tr><td colspan="3">Summe Zeilen</td><td class="num">${fmtEUR(r.sA)}</td><td class="sep" colspan="2">Summe Belege</td><td class="num">${fmtEUR(r.sB)}</td><td colspan="3"></td></tr>
+    <tr><td colspan="3" style="font-weight:400" class="muted">Kategorien</td><td colspan="7" style="font-weight:400" class="muted">${CATS.filter(([k])=>r.catSums[k]).map(([k])=>`${k} ${fmtEUR(r.catSums[k])}`).join(" · ")||"–"}</td></tr>
+    <tr><td colspan="6">Differenz beantragt (${fmtEURc(tot)}) – belegt</td><td class="num" style="color:${neq(tot,r.sB)?"var(--red)":"var(--green-d)"}">${fmtEUR(tot-r.sB)}</td><td colspan="3"></td></tr>`;
+  $("#issues").innerHTML = r.issues.length
+    ? r.issues.map(i=>`<div class="issue ${i.solved?"solved":i.lvl}">${i.lvl==="err"?"✗":"●"} <span>${esc(i.text)}</span></div>`).join("")
+    : (r.count ? `<div class="issue" style="background:var(--green-l);color:var(--green-d)">✓ Alle Belege stimmen mit dem Antrag überein, keine Doppelungen gefunden.</div>` : `<p class="hint">Noch keine Beträge erfasst.</p>`);
+}
+
+/* ---------------- Scan-Ansicht ---------------- */
+async function drawViewer(a){
+  const v = $("#viewer"); if(!v) return;
+  const docs = a.docs||[];
+  if(view.docId && !docs.includes(view.docId)) view.docId = docs[0]||null;
+  v.innerHTML = `
+    <div class="docbar">
+      <button class="small primary" id="addDoc">+ Scan / Foto hinzufügen</button>
+      ${docs.map(id=>`<span class="chip ${id===view.docId?"active":""}" data-doc="${id}"><span>${esc(S.files[id]?.name||"Datei")}</span><button class="icon" data-rmdoc="${id}" title="Entfernen">✕</button></span>`).join("")}
+      <div class="spacer"></div>
+      <span id="imgtools" style="display:none" class="row">
+        <button class="small" data-z="-">−</button><button class="small" data-z="fit">Breite</button><button class="small" data-z="+">+</button><button class="small" data-z="rot">⟳</button>
+      </span>
+    </div>
+    <div class="stage" id="stage"><div class="empty">📷<br><b>Scan hier hineinziehen</b><br>oder „+ Scan / Foto hinzufügen“ klicken.<br><span class="hint">PDF oder Foto vom Handy-Scanner</span></div></div>`;
+  $("#addDoc").onclick = ()=>{ pickFiles(files=>addDocs(a, files)); };
+  $$(".chip[data-doc]",v).forEach(ch=>ch.onclick=e=>{ if(e.target.closest("[data-rmdoc]")) return; view.docId = ch.dataset.doc; view.zoom=1; view.rot=0; drawViewer(a); });
+  $$("[data-rmdoc]",v).forEach(b=>b.onclick=()=>confirmBox(`Datei „${S.files[b.dataset.rmdoc]?.name}“ aus dem Antrag entfernen?`, ()=>{
+    a.docs = a.docs.filter(x=>x!==b.dataset.rmdoc); deleteFile(b.dataset.rmdoc); save(); drawViewer(a); refreshEditor();
+  }));
+  const stage = $("#stage");
+  ["dragenter","dragover"].forEach(ev=>stage.addEventListener(ev,e=>{e.preventDefault();stage.classList.add("drop");}));
+  ["dragleave","drop"].forEach(ev=>stage.addEventListener(ev,e=>{e.preventDefault();stage.classList.remove("drop");}));
+  stage.addEventListener("drop", e=>addDocs(a, [...e.dataTransfer.files]));
+  if(!view.docId) return;
+  const blob = await DB.get("files", view.docId);
+  if(!blob){ stage.innerHTML = `<div class="empty">Datei nicht gefunden.</div>`; return; }
+  if(objURL) URL.revokeObjectURL(objURL);
+  objURL = URL.createObjectURL(blob);
+  if((blob.type||S.files[view.docId]?.type||"").includes("pdf")){
+    stage.innerHTML = `<iframe src="${objURL}#view=FitH"></iframe>`;
+  } else {
+    $("#imgtools").style.display = "";
+    stage.innerHTML = `<img id="scanimg" src="${objURL}" alt="Scan">`;
+    const img = $("#scanimg");
+    const apply = ()=>{
+      const W = stage.clientWidth - 20;
+      const nat = (view.rot%180) ? img.naturalHeight : img.naturalWidth;
+      const base = nat ? W/nat : 1;
+      img.style.width = (img.naturalWidth*base*view.zoom)+"px";
+      img.style.transform = `rotate(${view.rot}deg)`;
+      img.style.margin = (view.rot%180) ? `${(img.naturalWidth-img.naturalHeight)*base*view.zoom/2+10}px auto` : "10px auto";
+    };
+    img.onload = apply;
+    $$("[data-z]",v).forEach(b=>b.onclick=()=>{
+      const z=b.dataset.z;
+      if(z==="+") view.zoom*=1.25; else if(z==="-") view.zoom/=1.25; else if(z==="fit") view.zoom=1; else view.rot=(view.rot+90)%360;
+      apply();
+    });
+  }
+}
+function pickFiles(cb){
+  const fp = $("#filepick"); fp.value = "";
+  fp.onchange = ()=>cb([...fp.files]); fp.click();
+}
+async function hashBlob(blob){
+  try{ const buf = await blob.arrayBuffer(); const h = await crypto.subtle.digest("SHA-256", buf);
+       return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,"0")).join(""); }
+  catch{ return null; }
+}
+async function addDocs(a, files){
+  files = files.filter(f=>/^image\/|pdf/.test(f.type) || /\.(pdf|jpe?g|png|heic|webp)$/i.test(f.name));
+  if(!files.length) return toast("Bitte PDF- oder Bilddateien wählen.");
+  for(const f of files){
+    const id = uid();
+    await DB.put("files", id, f);
+    S.files[id] = {name:f.name, type:f.type, size:f.size, hash:await hashBlob(f)};
+    a.docs = a.docs||[]; a.docs.push(id); view.docId = id;
+  }
+  save(); toast(files.length===1?"Scan hinzugefügt":`${files.length} Scans hinzugefügt`);
+  drawViewer(a); refreshEditor();
+}
+function deleteFile(id){ delete S.files[id]; DB.del("files", id).catch(()=>{}); }
+
+/* ---------------- Prüfübersicht ---------------- */
+function renderPruefung(m,R){
+  const cl = [...S.clients].sort((a,b)=>(+a.nr||0)-(+b.nr||0));
+  const tot = {
+    a:sum(cl.map(c=>R.client[c.id].sAntrag)), b:sum(cl.map(c=>R.client[c.id].sBeleg)),
+    n:sum(cl.map(c=>R.client[c.id].nBelege)), na:sum(cl.map(c=>R.client[c.id].nAntraege))
+  };
+  const openIss = R.issues.filter(i=>!i.solved);
+  m.innerHTML = `
+  <div class="kpis">
+    <div class="kpi"><div class="v">${cl.length}</div><div class="k">Klienten</div></div>
+    <div class="kpi"><div class="v">${tot.na} / ${tot.n}</div><div class="k">Anträge / Belege</div></div>
+    <div class="kpi"><div class="v">${fmtEUR(tot.a)} €</div><div class="k">beantragt gesamt</div></div>
+    <div class="kpi"><div class="v">${fmtEUR(tot.b)} €</div><div class="k">belegt gesamt</div></div>
+    <div class="kpi"><div class="v" style="color:${openIss.some(i=>i.lvl==="err")?"var(--red)":openIss.length?"var(--amber)":"var(--green-d)"}">${openIss.filter(i=>i.lvl==="err").length} / ${openIss.filter(i=>i.lvl==="warn").length}</div><div class="k">Beanstandungen / offene Punkte</div></div>
+  </div>
+  <div class="card">
+    <h3 style="margin-bottom:6px">Übersicht aller Klienten</h3>
+    <table class="t">
+      <thead><tr><th>Mitgl.-Nr.</th><th>Name</th><th class="num">Anträge</th><th class="num">Belege</th><th class="num">beantragt</th><th class="num">belegt</th><th class="num">Differenz</th><th>Ergebnis</th></tr></thead>
+      <tbody>${cl.map(c=>{const r=R.client[c.id]; return `
+        <tr class="click" data-cid="${c.id}"><td>${esc(c.nr)}</td><td>${esc(c.name)}</td><td class="num">${r.nAntraege}</td><td class="num">${r.nBelege}</td>
+        <td class="num">${fmtEURc(r.sAntrag)}</td><td class="num">${fmtEURc(r.sBeleg)}</td>
+        <td class="num" style="${neq(r.sAntrag,r.sBeleg)?"color:var(--red);font-weight:600":""}">${fmtEURc(r.sAntrag-r.sBeleg)}</td><td>${badge(r.status)}</td></tr>`;}).join("")||`<tr><td colspan="8" class="muted">Keine Klienten erfasst.</td></tr>`}</tbody>
+      <tfoot><tr><td colspan="2">Summe</td><td class="num">${tot.na}</td><td class="num">${tot.n}</td><td class="num">${fmtEURc(tot.a)}</td><td class="num">${fmtEURc(tot.b)}</td><td class="num">${fmtEURc(tot.a-tot.b)}</td><td></td></tr></tfoot>
+    </table>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h3 style="margin-bottom:8px">Befunde</h3>
+    <div class="issues">${R.issues.length ? R.issues.map(i=>`
+      <div class="issue ${i.solved?"solved":i.lvl}" data-goto="${i.antrag.id}" style="cursor:pointer">${i.lvl==="err"?"✗":"●"}
+        <span><b>${esc(i.client?.nr)} ${esc(i.client?.name)}</b>, Antrag vom ${fmtDate(i.antrag.datum)}: ${esc(i.text)}</span></div>`).join("")
+      : `<div class="issue" style="background:var(--green-l);color:var(--green-d)">✓ Keine Befunde.</div>`}</div>
+  </div>`;
+  $$("tr[data-cid]").forEach(tr=>tr.onclick=()=>{ view.tab="klienten"; view.clientId=tr.dataset.cid; render(); });
+  $$("[data-goto]").forEach(el=>el.onclick=()=>{
+    const a = S.antraege.find(x=>x.id===el.dataset.goto); view.tab="klienten"; view.clientId=a.clientId; openAntrag(a.id);
+  });
+}
+
+/* ---------------- Bericht ---------------- */
+function renderBericht(m,R){
+  const s = S.settings;
+  const openErr = R.issues.filter(i=>!i.solved && i.lvl==="err").length;
+  const openWarn = R.issues.filter(i=>!i.solved && i.lvl==="warn").length;
+  m.innerHTML = `
+  <div class="grid" style="grid-template-columns:1.3fr 1fr;align-items:start;gap:16px">
+    <div class="card">
+      <h3 style="margin-bottom:12px">Angaben für den Kassenprüfungsbericht</h3>
+      <div class="grid g2">
+        <div style="grid-column:span 2"><label>Bericht Kassenprüfung für den</label><input data-s="verein" value="${esc(s.verein)}"></div>
+        <div><label>Prüfjahr</label><input data-s="jahr" type="number" value="${esc(s.jahr)}"></div>
+        <div><label>Kassenprüfung am</label><input data-s="pruefDatum" type="date" value="${esc(s.pruefDatum)}"></div>
+        <div><label>Zeitraum von</label><input data-s="von" type="date" value="${esc(s.von)}"></div>
+        <div><label>bis</label><input data-s="bis" type="date" value="${esc(s.bis)}"></div>
+        <div style="grid-column:span 2"><label>1.) Kassenprüfer/in (Name, Anschrift)</label><input data-s="pruefer1" value="${esc(s.pruefer1)}"></div>
+        <div style="grid-column:span 2"><label>2.) Kassenprüfer/in (Name, Anschrift) – optional</label><input data-s="pruefer2" value="${esc(s.pruefer2)}"></div>
+        <div><label>Ort</label><input data-s="ort" value="${esc(s.ort)}"></div>
+        <div><label>Kassier/in (Name)</label><input data-s="kassier" value="${esc(s.kassier)}"></div>
+        <div><label>Belege lagen vor</label><select data-s="vollst">
+          <option value="auto" ${s.vollst==="auto"?"selected":""}>automatisch (${openWarn?"unvollständig":"vollständig"})</option>
+          <option value="ja" ${s.vollst==="ja"?"selected":""}>vollständig</option><option value="nein" ${s.vollst==="nein"?"selected":""}>unvollständig</option></select></div>
+        <div><label>Entlastung</label><select data-s="entlastung">
+          <option value="auto" ${s.entlastung==="auto"?"selected":""}>automatisch (${openErr?"keine Zustimmung":"Entlastung vorschlagen"})</option>
+          <option value="ja" ${s.entlastung==="ja"?"selected":""}>Entlastung vorschlagen</option><option value="nein" ${s.entlastung==="nein"?"selected":""}>einer Entlastung nicht zustimmen</option>
+          <option value="leer" ${s.entlastung==="leer"?"selected":""}>offen lassen (von Hand ankreuzen)</option></select></div>
+        <div><label style="display:flex;gap:6px;align-items:center;color:var(--ink);font-size:13px;margin-top:20px"><input type="checkbox" data-s="gekennzeichnet" style="width:auto" ${s.gekennzeichnet?"checked":""}> Belege eindeutig gekennzeichnet</label></div>
+        <div><label>Weiterer Prüfungstermin (optional)</label><input data-s="weitererTermin" type="date" value="${esc(s.weitererTermin)}"></div>
+        <div style="grid-column:span 2"><label>Ergänzende Ergebnisse / Beanstandungen (zusätzlich zu den automatisch gefundenen)</label><textarea data-s="ergebnisZusatz" rows="2">${esc(s.ergebnisZusatz)}</textarea></div>
+        <div style="grid-column:span 2"><label>Besondere Bemerkungen</label><textarea data-s="bemerkungen" rows="2">${esc(s.bemerkungen)}</textarea></div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h3 style="margin-bottom:4px">Unterschriften</h3>
+        <p class="hint" style="margin:0 0 10px">Mit Maus, Stift oder Finger unterschreiben – oder leer lassen und den ausgedruckten Bericht von Hand unterzeichnen.</p>
+        <label>Kassenprüfer/in 1</label><canvas class="sigpad" id="sig1" width="900" height="220"></canvas>
+        <div class="row" style="margin:4px 0 12px"><button class="small" data-clr="sig1">löschen</button></div>
+        <label>Kassenprüfer/in 2</label><canvas class="sigpad" id="sig2" width="900" height="220"></canvas>
+        <div class="row" style="margin:4px 0 0"><button class="small" data-clr="sig2">löschen</button></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h3 style="margin-bottom:6px">Bericht erstellen</h3>
+        <p class="hint" style="margin:0 0 10px">Seite 1 entspricht dem Vordruck, danach folgen als Anlage die Übersicht aller Klienten, alle Befunde und der Einzelnachweis je Antrag. Im Druckdialog <b>„Als PDF speichern“</b> bzw. <b>„Microsoft Print to PDF“</b> wählen.</p>
+        <div class="row"><button class="primary" id="doPrint">🖨 Bericht drucken / als PDF speichern</button></div>
+        ${openErr||openWarn?`<p class="hint" style="margin-top:10px;color:var(--amber)">Hinweis: ${openErr} Beanstandung(en) und ${openWarn} offene(r) Punkt(e) werden im Bericht aufgeführt.</p>`:""}
+      </div>
+    </div>
+  </div>`;
+  $$("[data-s]").forEach(inp=>inp.onchange=()=>{
+    const k = inp.dataset.s; s[k] = inp.type==="checkbox" ? inp.checked : inp.value;
+    if(k==="jahr" && /^\d{4}$/.test(s.jahr)){ s.von = `${s.jahr}-01-01`; s.bis = `${s.jahr}-12-31`; save(); return render(); }
+    save();
+  });
+  setupSig("sig1"); setupSig("sig2");
+  $("#doPrint").onclick = ()=>{ buildReport(computeAll()); setTimeout(()=>window.print(), 50); };
+}
+function setupSig(key){
+  const cv = $("#"+key), ctx = cv.getContext("2d");
+  ctx.lineWidth = 4.5; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = "#13224a";
+  if(S.settings[key]){ const im = new Image(); im.onload=()=>ctx.drawImage(im,0,0); im.src = S.settings[key]; }
+  let drawing = false, dirty = false;
+  const pos = e=>{ const r = cv.getBoundingClientRect(); return [(e.clientX-r.left)*cv.width/r.width, (e.clientY-r.top)*cv.height/r.height]; };
+  cv.onpointerdown = e=>{ drawing = true; cv.setPointerCapture(e.pointerId); const [x,y]=pos(e); ctx.beginPath(); ctx.moveTo(x,y); };
+  cv.onpointermove = e=>{ if(!drawing) return; const [x,y]=pos(e); ctx.lineTo(x,y); ctx.stroke(); dirty = true; };
+  cv.onpointerup = cv.onpointercancel = ()=>{ if(!drawing) return; drawing=false; if(dirty){ S.settings[key] = cv.toDataURL("image/png"); save(); } };
+  $(`[data-clr="${key}"]`).onclick = ()=>{ ctx.clearRect(0,0,cv.width,cv.height); S.settings[key]=null; save(); };
+}
+
+function buildReport(R){
+  const s = S.settings;
+  const cl = [...S.clients].sort((a,b)=>(+a.nr||0)-(+b.nr||0));
+  const open = R.issues.filter(i=>!i.solved);
+  const errs = open.filter(i=>i.lvl==="err"), warns = open.filter(i=>i.lvl==="warn");
+  const hasErr = errs.length>0 || !!s.ergebnisZusatz.trim();
+  const vollst = s.vollst==="auto" ? !warns.length : s.vollst==="ja";
+  const entl = s.entlastung==="auto" ? (errs.length ? "nein" : "ja") : s.entlastung;
+  const B = on => `<span class="box">${on?"☒":"☐"}</span>`;
+  const F = (v,w=120) => `<span class="fl" style="min-width:${w}px">${esc(v)||"&nbsp;"}</span>`;
+  const head = `<div class="ph"><div class="l">● SOLIDAGO</div><div class="r">Bundesverband Solidargemeinschaft für Gesundheit e.V.<br>${esc(s.verein)}</div></div>`;
+  const tot = { a:sum(cl.map(c=>R.client[c.id].sAntrag)), b:sum(cl.map(c=>R.client[c.id].sBeleg)) };
+  const nOk = cl.filter(c=>R.client[c.id].status==="ok").length;
+
+  const clientsWithErr = new Set(errs.map(i=>i.client?.id)).size;
+  let ergebnisText = "";
+  if(errs.length){
+    ergebnisText = `${errs.length} Beanstandung(en) bei ${clientsWithErr} Klient(en):<br>` +
+      errs.slice(0,6).map(i=>`– ${esc(i.client?.nr)} ${esc(i.client?.name)}, Antrag vom ${fmtDate(i.antrag.datum)}: ${esc(i.text)}`).join("<br>") +
+      (errs.length>6 ? `<br>– … weitere ${errs.length-6}, siehe Anlage Abschnitt 2.` : `<br>Einzelheiten siehe Anlage.`);
+  }
+  if(s.ergebnisZusatz.trim()) ergebnisText += (ergebnisText?"<br>":"") + esc(s.ergebnisZusatz).replace(/\n/g,"<br>");
+  const sigImg = k => s[k] ? `<img src="${s[k]}">` : "";
+
+  const page1 = `
+  <div class="pg">
+    ${head}
+    <p>Bericht Kassenprüfung für den: ${F(s.verein,360)}</p>
+    <h1>Kassenprüfungsbericht für das Jahr ${esc(s.jahr)}</h1>
+    <p>Am ${F(fmtDate(s.pruefDatum),110)} hat die Kassenprüfung für den Zeitraum von: ${F(fmtDate(s.von),90)} bis ${F(fmtDate(s.bis),90)} stattgefunden.</p>
+    <p style="margin-top:8px">An der Kassenprüfung haben als Kassenprüfer teilgenommen (Name, Anschrift):</p>
+    <p>1.) ${F(s.pruefer1,560)}</p>
+    <p>2.) ${F(s.pruefer2,560)}</p>
+    <p style="margin-top:8px">Geprüft wurden <b>${cl.length} Klienten</b> mit <b>${sum(cl.map(c=>R.client[c.id].nAntraege))} Anträgen</b> auf Auszahlung und <b>${sum(cl.map(c=>R.client[c.id].nBelege))} Belegen</b>
+      (beantragt ${fmtEURc(tot.a)}, belegt ${fmtEURc(tot.b)}). Davon ohne Beanstandung: ${nOk} von ${cl.length} Klienten. Prüfprotokoll siehe Anlage.</p>
+    <p style="margin-top:8px">Die Kassenprüfung hat</p>
+    <div class="opt ind">${B(!hasErr)} keine Beanstandung ergeben. Die Konten wurden für den Zeitraum über ordnungsgemäß und ordentlich geführt.</div>
+    <div class="opt ind">${B(hasErr)} folgende Ergebnisse oder Beanstandungen ergeben:
+      <div class="ind" style="font-size:9.5pt;margin-top:3px">${ergebnisText||"&nbsp;"}</div></div>
+    <p style="margin-top:8px">Die Belege und Kontoauszüge lagen &nbsp;${B(vollst)} vollständig &nbsp;&nbsp;${B(!vollst)} unvollständig vor.</p>
+    <div class="opt">${B(s.gekennzeichnet)} Die Belege sind eindeutig gekennzeichnet. Sie wurden dem Kontenplan sachlich zugeordnet.</div>
+    <div class="opt" style="margin-top:7px">${B(entl==="ja")} Die Kassenprüfer schlagen die Entlastung der Vorstandschaft vor.</div>
+    <div class="opt">${B(entl==="nein")} Die Kassenprüfer stimmen einer Entlastung nicht zu.</div>
+    <div class="opt" style="margin-top:7px">${B(!!s.weitererTermin)} Ein weiterer Prüfungstermin ist für den ${F(fmtDate(s.weitererTermin),110)} angesetzt worden. Hierüber ist ein gesonderter Bericht zu fertigen.</div>
+    <p style="margin-top:8px">Besondere Bemerkungen zur erfolgten Kassenprüfung: &nbsp;${B(!s.bemerkungen.trim())} keine</p>
+    <div class="opt">${B(!!s.bemerkungen.trim())} folgende Bemerkungen:<div class="ind" style="font-size:9.5pt">${esc(s.bemerkungen).replace(/\n/g,"<br>")||"&nbsp;"}</div></div>
+    <p style="margin-top:14px">${F(s.ort,170)}, den ${F(fmtDate(s.pruefDatum),130)}<br><span style="font-size:8.5pt;margin-left:60px">(Ort)</span><span style="font-size:8.5pt;margin-left:160px">(Datum)</span></p>
+    <div class="sigs" style="margin-top:8px">
+      <div class="sig"><div class="img">${sigImg("sig1")}</div><div class="cap">zu 1.) ${esc(s.pruefer1.split(",")[0])}</div></div>
+      <div class="sig"><div class="img">${sigImg("sig2")}</div><div class="cap">zu 2.) ${esc(s.pruefer2.split(",")[0])}</div></div>
+      <div class="sig"><div class="img"></div><div class="cap">Unterschrift Kassier: ${esc(s.kassier)}</div></div>
+    </div>
+  </div>`;
+
+  const overview = `
+  <div class="pg">
+    ${head}
+    <h1>Anlage zum Kassenprüfungsbericht ${esc(s.jahr)} – Prüfprotokoll</h1>
+    <h2>1. Übersicht aller Klienten</h2>
+    <table class="p">
+      <thead><tr><th>Mitgl.-Nr.</th><th>Name</th><th style="text-align:right">Anträge</th><th style="text-align:right">Belege</th><th style="text-align:right">beantragt</th><th style="text-align:right">belegt</th><th style="text-align:right">Differenz</th><th>Ergebnis</th></tr></thead>
+      <tbody>${cl.map(c=>{const r=R.client[c.id]; return `<tr class="${r.status==="err"?"e":""}"><td>${esc(c.nr)}</td><td>${esc(c.name)}</td><td class="num">${r.nAntraege}</td><td class="num">${r.nBelege}</td><td class="num">${fmtEURc(r.sAntrag)}</td><td class="num">${fmtEURc(r.sBeleg)}</td><td class="num">${fmtEURc(r.sAntrag-r.sBeleg)}</td><td>${({ok:"✓ in Ordnung",err:"✗ Beanstandung",open:"● offen",none:"– keine Anträge"})[r.status]}</td></tr>`;}).join("")}</tbody>
+      <tfoot><tr><td colspan="2">Summe</td><td class="num">${sum(cl.map(c=>R.client[c.id].nAntraege))}</td><td class="num">${sum(cl.map(c=>R.client[c.id].nBelege))}</td><td class="num">${fmtEURc(tot.a)}</td><td class="num">${fmtEURc(tot.b)}</td><td class="num">${fmtEURc(tot.a-tot.b)}</td><td></td></tr></tfoot>
+    </table>
+    <h2>2. Befunde</h2>
+    ${R.issues.length ? `<table class="p"><thead><tr><th style="width:24px"></th><th>Klient</th><th>Antrag vom</th><th>Befund</th><th>Bemerkung</th></tr></thead><tbody>
+      ${R.issues.map(i=>`<tr class="${!i.solved&&i.lvl==="err"?"e":""}"><td>${i.solved?"☑":i.lvl==="err"?"✗":"●"}</td><td>${esc(i.client?.nr)} ${esc(i.client?.name)}</td><td>${fmtDate(i.antrag.datum)}</td><td>${esc(i.text)}${i.solved?" <i>(geklärt)</i>":""}</td><td>${esc(i.z?.bemerkung||"")}</td></tr>`).join("")}
+    </tbody></table><p style="font-size:8.5pt">✗ = Beanstandung · ● = offener Punkt (Beleg fehlt) · ☑ = vom Prüfer geprüft und als geklärt markiert</p>`
+    : `<p>Keine Befunde. Alle Belege stimmen mit den beantragten Beträgen überein; es wurden keine Doppelabrechnungen festgestellt.</p>`}
+    <h2>3. Prüfumfang</h2>
+    <p style="font-size:9.5pt">Für jeden Antrag auf Auszahlung wurde geprüft: (a) ob die Summe der Belegzeilen der beantragten Gesamtsumme entspricht, (b) ob jeder im Antrag aufgeführte Betrag durch eine Rechnung bzw. einen Beleg in gleicher Höhe nachgewiesen ist, (c) ob gleiche Leistungen oder Produkte mit gleichem Datum mehrfach abgerechnet wurden – auch über verschiedene Anträge desselben Klienten hinweg, (d) ob dieselbe Scan-Datei mehrfach eingereicht wurde.</p>
+  </div>`;
+
+  const detail = `
+  <div class="pg">
+    ${head}
+    <h2 style="margin-top:0">4. Einzelnachweis je Klient und Antrag</h2>
+    ${cl.map(c=>{
+      const as = S.antraege.filter(a=>a.clientId===c.id).sort((a,b)=>(a.datum||"").localeCompare(b.datum||""));
+      return `<h3>${esc(c.nr)} · ${esc(c.name)}</h3>` + (as.length ? as.map(a=>{
+        const r = R.antrag[a.id]; const t = a.gesamt!=null?a.gesamt:r.sA;
+        return `<div class="cblock"><p style="margin:4px 0 2px;font-size:9.5pt"><b>Antrag vom ${fmtDate(a.datum)}</b> – beantragt ${fmtEURc(t)}${a.anlage?" (mit Anlage)":""}${a.notiz?` – ${esc(a.notiz)}`:""}</p>
+        <table class="p"><thead><tr><th>Nr.</th><th>Datum</th><th>Kat.</th><th>Leistung / Produkt</th><th style="text-align:right">lt. Antrag</th><th style="text-align:right">lt. Beleg</th><th style="text-align:right">Diff.</th><th>Ergebnis</th></tr></thead><tbody>
+        ${r.lines.map(z=>{ const st = r.lineState[z.id]; const sv = z.geklaert && st!=="ok";
+          return `<tr class="${st==="err"&&!sv?"e":""}"><td>${esc(z.nr)}</td><td>${fmtDate(z.belegDatum||z.datum)}</td><td>${esc(z.kat)}</td><td>${esc(z.leistung)}${z.bemerkung?` <i>(${esc(z.bemerkung)})</i>`:""}</td><td class="num">${fmtEUR(z.betragAntrag)}</td><td class="num">${fmtEUR(z.betragBeleg)}</td><td class="num">${z.betragBeleg!=null?fmtEUR((z.betragAntrag||0)-z.betragBeleg):""}</td><td>${sv?"☑ geklärt":st==="ok"?"✓":st==="err"?"✗":"● Beleg fehlt"}</td></tr>`;}).join("")}
+        </tbody><tfoot><tr><td colspan="4">Summe${neq(t,r.sA)?` (Zeilen; beantragt lt. Formular ${fmtEURc(t)})`:""}</td><td class="num">${fmtEUR(r.sA)}</td><td class="num">${fmtEUR(r.sB)}</td><td class="num">${fmtEUR(r.sA-r.sB)}</td><td>${({ok:"✓",err:"✗",open:"●",none:"–"})[r.status]}</td></tr></tfoot></table></div>`;
+      }).join("") : `<p style="font-size:9.5pt">Keine Anträge im Prüfzeitraum.</p>`);
+    }).join("")}
+    <div class="foot">Erstellt am ${fmtDate(todayISO())} mit SOLIDAGO Kassenprüfung · Prüfjahr ${esc(s.jahr)}</div>
+  </div>`;
+  $("#print").innerHTML = page1 + overview + detail;
+}
+
+/* ---------------- Daten ---------------- */
+function renderDaten(m){
+  const nFiles = Object.keys(S.files).length;
+  m.innerHTML = `
+  <div class="grid g2" style="align-items:start">
+    <div class="card">
+      <h3>Sicherung</h3>
+      <p class="hint">Alle Daten liegen nur lokal in diesem Browser auf diesem PC – nichts wird ins Internet übertragen. Wenn Browserdaten gelöscht werden, sind auch die Prüfdaten weg. Deshalb zwischendurch eine Sicherungsdatei speichern.</p>
+      <p>${S.clients.length} Klienten · ${S.antraege.length} Anträge · ${nFiles} Scan-Dateien</p>
+      <div class="row"><button class="primary" id="exp">Sicherung speichern …</button><button id="imp">Sicherung laden …</button></div>
+    </div>
+    <div class="card">
+      <h3>Neues Prüfjahr</h3>
+      <p class="hint">Löscht alle Anträge und Scans. Klienten und Prüfer-Angaben bleiben auf Wunsch erhalten. Vorher den Bericht als PDF speichern!</p>
+      <div class="row"><button class="danger" id="newYearKeep">Neues Jahr – Klienten behalten</button><button class="danger" id="wipe">Alles löschen</button></div>
+    </div>
+    <div class="card">
+      <h3>Beispieldaten</h3>
+      <p class="hint">Lädt drei erfundene Klienten mit Anträgen – darunter eine Betragsabweichung, eine Doppelabrechnung und einen fehlenden Beleg –, um das Programm auszuprobieren. Ersetzt die aktuellen Daten.</p>
+      <button id="demo">Beispieldaten laden</button>
+    </div>
+    <div class="card">
+      <h3>So kommen die Scans vom Handy auf den PC</h3>
+      <p class="hint" style="margin:0">1. Am Handy mit der Scan-Funktion (iPhone: Notizen/Dateien → „Dokumente scannen“; Android: Google Drive → „Scannen“) Antrag und Belege eines Klienten als <b>ein PDF</b> scannen, Dateiname z. B. <i>723_2024-12-29.pdf</i>.<br>
+      2. In einem Ordner speichern, der mit dem PC synchronisiert wird (OneDrive, iCloud, Google Drive) – oder per Kabel/Mail übertragen.<br>
+      3. Im Antrag die Datei in die Scan-Ansicht ziehen und die Beträge abtippen.</p>
+    </div>
+  </div>`;
+  $("#exp").onclick = exportData;
+  $("#imp").onclick = ()=>{ const p=$("#importpick"); p.value=""; p.onchange=()=>importData(p.files[0]); p.click(); };
+  $("#newYearKeep").onclick = ()=>confirmBox("Alle Anträge und Scans löschen, Klienten behalten?", async ()=>{
+    S.antraege=[]; S.files={}; await DB.clear("files");
+    const y = (+S.settings.jahr||new Date().getFullYear())+1;
+    Object.assign(S.settings,{jahr:y,von:`${y}-01-01`,bis:`${y}-12-31`,pruefDatum:todayISO(),ergebnisZusatz:"",bemerkungen:"",weitererTermin:"",sig1:null,sig2:null});
+    save(); render(); toast("Neues Prüfjahr angelegt");
+  });
+  $("#wipe").onclick = ()=>confirmBox("Wirklich ALLE Daten löschen?", async ()=>{ S = emptyState(); await DB.clear("files"); view.clientId=null; save(); render(); });
+  $("#demo").onclick = ()=>confirmBox("Aktuelle Daten durch Beispieldaten ersetzen?", async ()=>{ await DB.clear("files"); loadDemo(); view.clientId=null; save(); render(); toast("Beispieldaten geladen"); });
+}
+const blobToDataURL = b => new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(b); });
+async function exportData(){
+  const files = {};
+  for(const id of Object.keys(S.files)){ const b = await DB.get("files", id); if(b) files[id] = await blobToDataURL(b); }
+  const out = JSON.stringify({app:"solidago-kassenpruefung", exported:new Date().toISOString(), state:S, files});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([out],{type:"application/json"}));
+  a.download = `Kassenpruefung_${S.settings.jahr}_Sicherung_${todayISO()}.json`; a.click();
+  toast("Sicherung gespeichert");
+}
+async function importData(file){
+  if(!file) return;
+  try{
+    const d = JSON.parse(await file.text());
+    if(d.app!=="solidago-kassenpruefung") throw new Error("Keine gültige Sicherungsdatei");
+    confirmBox("Aktuelle Daten durch die Sicherung ersetzen?", async ()=>{
+      await DB.clear("files");
+      for(const [id,url] of Object.entries(d.files||{})){ const b = await (await fetch(url)).blob(); await DB.put("files", id, b); }
+      S = Object.assign(emptyState(), d.state); S.settings = Object.assign(emptyState().settings, d.state.settings);
+      view.clientId=null; save(); render(); toast("Sicherung geladen");
+    });
+  }catch(e){ toast("Fehler: "+e.message); }
+}
+
+function loadDemo(){
+  S = emptyState(); const y = S.settings.jahr;
+  S.settings.pruefer1 = "Erika Beispiel, Musterweg 1, 01067 Dresden"; S.settings.ort = "Dresden"; S.settings.kassier = "Kassenwart (Beispiel)";
+  const mk = (nr,name)=>{ const c={id:uid(),nr,name,adresse:""}; S.clients.push(c); return c; };
+  const ant = (c,datum,gesamt,rows)=>{ const a={id:uid(),clientId:c.id,datum,gesamt,anlage:false,docs:[],notiz:"",zeilen:[]};
+    rows.forEach((r,i)=>a.zeilen.push({...newZeile(i+1), datum:r[0], kat:r[1], betragAntrag:r[2], leistung:r[3], betragBeleg:r[4]}));
+    S.antraege.push(a); return a; };
+  const c1 = mk("101","Anna Muster"), c2 = mk("102","Bernd Beispiel"), c3 = mk("103","Clara Probe");
+  ant(c1,`${y}-03-15`,271.00,[[`${y}-02-28`,"AHMIT",66.00,"Apotheke Johanniskraut",66.00],[`${y}-03-01`,"AHMIT",205.00,"Heilpraktiker Behandlung",205.00]]);
+  ant(c1,`${y}-09-02`,140.50,[[`${y}-08-20`,"AMB",95.50,"Physiotherapie",95.50],[`${y}-08-27`,"AMB",45.00,"Physiotherapie",45.00]]);
+  ant(c2,`${y}-05-10`,380.00,[[`${y}-04-30`,"ZAB",120.00,"Zahnreinigung",120.00],[`${y}-05-02`,"ZAER",260.00,"Zahnersatz Eigenanteil",250.00]]);
+  ant(c3,`${y}-06-01`,89.90,[[`${y}-05-20`,"PRAEV",89.90,"Yogakurs",89.90]]);
+  ant(c3,`${y}-11-12`,154.80,[[`${y}-05-20`,"PRAEV",89.90,"Yogakurs",89.90],[`${y}-11-01`,"AHMIT",64.90,"Apotheke",null]]);
+}
+
+/* ---------------- Dialog ---------------- */
+function confirmBox(text, onOk){
+  $("#modalcard").innerHTML = `<p style="margin-top:0">${esc(text)}</p><div class="row" style="justify-content:flex-end"><button id="mNo">Abbrechen</button><button class="primary" id="mYes">OK</button></div>`;
+  $("#modal").classList.add("show");
+  $("#mNo").onclick = ()=>$("#modal").classList.remove("show");
+  $("#mYes").onclick = ()=>{ $("#modal").classList.remove("show"); onOk(); };
+}
+
+/* ---------------- Start ---------------- */
+(async ()=>{
+  try{
+    await DB.open();
+    const st = await DB.get("kv","state");
+    if(st){ S = Object.assign(emptyState(), st); S.settings = Object.assign(emptyState().settings, st.settings); }
+    $("#savestate").textContent = "✓ lokal gespeichert";
+  }catch(e){
+    $("#savestate").textContent = "⚠ Lokaler Speicher nicht verfügbar – Daten gehen beim Schließen verloren";
+    DB.db = null; DB.put = DB.del = DB.clear = async()=>{}; DB.get = async()=>null;
+  }
+  render();
+})();
+window.addEventListener("beforeprint", ()=>{ if(!$("#print").innerHTML) buildReport(computeAll()); });
+</script>
+</body>
+</html>

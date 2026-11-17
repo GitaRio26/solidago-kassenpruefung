@@ -1,0 +1,82 @@
+{
+ "antrag": {
+  "datum": "26.10.2026",
+  "nr": "999",
+  "name": "Erika Beispiel",
+  "adresse": "Musterweg 1, 01067 Dresden",
+  "gesamt": "171,73",
+  "zeilen": [
+   {
+    "datum": "02.09.2026",
+    "kat": "ZAB",
+    "betrag": "107,01"
+   },
+   {
+    "datum": "16.09.2026",
+    "kat": "ZAB",
+    "betrag": "17,73"
+   },
+   {
+    "datum": "20.09.2026",
+    "kat": "AHMIT",
+    "betrag": "46,99"
+   }
+  ],
+  "summen": {
+   "ZAB": "124,74",
+   "AHMIT": "46,99"
+  }
+ },
+ "rechnungen": [
+  {
+   "aussteller": "Zahnarztpraxis Dr. Muster",
+   "adresse": "Hauptstraße 5, 01067 Dresden",
+   "patient": "Frau Erika Beispiel",
+   "nummer": "R2026-0815",
+   "datum": "02.09.2026",
+   "pos": [
+    [
+     "Zahnärztliche Untersuchung",
+     "57,01"
+    ],
+    [
+     "Professionelle Zahnreinigung",
+     "50,00"
+    ]
+   ],
+   "betrag": "107,01"
+  },
+  {
+   "aussteller": "Zahnarztpraxis Dr. Muster",
+   "adresse": "Hauptstraße 5, 01067 Dresden",
+   "patient": "Frau Erika Beispiel",
+   "nummer": "R2026-0902",
+   "datum": "16.09.2026",
+   "pos": [
+    [
+     "Beratung",
+     "17,73"
+    ]
+   ],
+   "betrag": "17,73"
+  },
+  {
+   "aussteller": "Linden-Apotheke",
+   "adresse": "Am Markt 2, 01067 Dresden",
+   "patient": "Frau Erika Beispiel",
+   "nummer": "A-55120",
+   "datum": "20.09.2026",
+   "pos": [
+    [
+     "Arznei Johanniskraut",
+     "21,99"
+    ],
+    [
+     "Heilmittel Salbe",
+     "25,00"
+    ]
+   ],
+   "betrag": "46,99"
+  }
+ ]
+}

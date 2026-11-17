@@ -1,0 +1,52 @@
+name: Windows-Installer bauen
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Abhängigkeiten installieren
+        run: npm install --no-audit --no-fund
+
+      - name: Prüflogik testen
+        run: node test/pruefung.test.js
+
+      - name: Auslesen mit tesseract.js testen (wie in der App)
+        run: |
+          node test/auslesen.test.js --tjs
+          node test/durchlauf.test.js --tjs
+
+      - name: Setup.exe bauen
+        run: npm run dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Setup.exe als Download speichern (Actions-Artefakt)
+        uses: actions/upload-artifact@v4
+        with:
+          name: SOLIDAGO-Kassenpruefung-Setup
+          path: dist/*.exe
+          retention-days: 60
+
+      - name: Setup.exe unter „Releases“ bereitstellen
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V=$(node -p "require('./package.json').version")
+          gh release delete "v$V" -y --cleanup-tag || true
+          gh release create "v$V" dist/*.exe --title "SOLIDAGO Kassenprüfung $V" --prerelease \
+            --notes "Automatisch gebaut aus Stand ${GITHUB_SHA::7}. Herunterladen: Datei SOLIDAGO-Kassenpruefung-Setup-$V.exe unten unter Assets."

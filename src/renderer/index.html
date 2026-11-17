@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' app:; img-src 'self' app: data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' app:; worker-src 'self' app: blob:; connect-src 'self' app:">
+<title>SOLIDAGO Kassenprüfung</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="app">
+  <div class="logo"><span class="dot"></span>SOLIDAGO <small>Kassenprüfung</small></div>
+  <nav class="tabs" id="tabs">
+    <button data-tab="eingang" class="active">Eingang</button>
+    <button data-tab="klienten">Klienten &amp; Anträge</button>
+    <button data-tab="pruefung">Prüfübersicht</button>
+    <button data-tab="bericht">Bericht</button>
+    <button data-tab="daten">Daten</button>
+  </nav>
+  <div class="spacer"></div>
+  <span class="busy" id="busy"></span>
+  <button class="primary" id="btnHandy">📱 Belege vom Handy</button>
+</header>
+<main id="main"></main>
+<div id="print"></div>
+<div id="modal"><div class="card" id="modalcard"></div></div>
+<div class="toast" id="toast"></div>
+<script src="vendor/pdf.min.js"></script>
+<script src="core/pruefung.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
