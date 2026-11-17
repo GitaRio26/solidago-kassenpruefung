@@ -65,4 +65,5 @@ async function load(file) {
   if (marked.length) console.log(`\n● ${marked.length} Lesefehler, aber korrekt zur Kontrolle markiert:\n  ` + marked.join("\n  "));
   console.log(errs.length ? `\n✗ ${errs.length} unbemerkte Abweichung(en):\n  ` + errs.join("\n  ") : "\n✓ Alle Werte korrekt erkannt oder zur Kontrolle markiert.");
   process.exitCode = errs.length ? 1 : 0;
-})().catch(e => { console.error(e); process.exitCode = 2; });
+})().catch(e => { console.error(e); process.exitCode = 2; })
+  .finally(() => setTimeout(() => process.exit(), 500));

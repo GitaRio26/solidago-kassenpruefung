@@ -92,7 +92,7 @@ app.whenReady().then(async () => {
   createWindow();
 });
 app.on("second-instance", () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
-app.on("window-all-closed", () => { handy?.stop(); store?.save(true); app.quit(); });
+app.on("window-all-closed", () => { handy?.stop(); store?.save(true); leser?.close().catch(() => {}); app.quit(); });
 
 // ---------------- Schnittstelle zur Oberfläche ----------------
 ipcMain.handle("state:get", () => ({ S: store.S, pending: leser.pending(), version: app.getVersion(), datenOrdner: store.dir }));

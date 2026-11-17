@@ -85,20 +85,34 @@ async function readAntrag(page, pageText, ocr) {
 
   // jede Tabellenzeile als Streifen lesen – in drei Vergrößerungen. Weichen die Lesungen
   // voneinander ab, gilt die Mehrheit und die Stelle wird zur Kontrolle markiert.
+  const strip = t => t.replace(/^[\s|.'"‚,;:\[\]]+|[\s|.'"‚,;:\[\]]+$/g, "");
   const parseRow = (words, scale) => {
-    const row = { betraege: {}, conf: {} };
+    const row = { betraege: {}, conf: {}, pos: {} };
     for (const w of words) {
-      const t = w.text.replace(/^[\s|.'"‚,;:]+|[\s|.'"‚,;:]+$/g, "");
+      const t = strip(w.text);
       const cx = (w.left + w.width / 2) / scale - 15;
+      const box = { x0: w.left / scale - 15, x1: (w.left + w.width) / scale - 15 };
       const amt = cellAmount(t);
-      if (RE_DATE.test(t) && parseDate(t) && cx < centers[0] - step * 0.6) { row.datum = parseDate(t); row.conf.datum = w.conf; }
+      if (RE_DATE.test(t) && parseDate(t) && cx < centers[0] - step * 0.6) { row.datum = parseDate(t); row.conf.datum = w.conf; row.pos.datum = box; }
       else if (t.toUpperCase().startsWith("SUMME")) row.nr = "SUMMEN";
       else if (amt != null) {
         let j = 0; for (let k = 1; k < 6; k++) if (Math.abs(centers[k] - cx) < Math.abs(centers[j] - cx)) j = k;
-        if (Math.abs(centers[j] - cx) < step * 0.6) { row.betraege[KATS[j]] = amt; row.conf[KATS[j]] = w.conf; }
+        if (Math.abs(centers[j] - cx) < step * 0.6) { row.betraege[KATS[j]] = amt; row.conf[KATS[j]] = w.conf; row.pos[KATS[j]] = box; }
       } else if (/^\d{1,2}$/.test(t) && cx < centers[0] - 2 * step && row.nr == null) row.nr = t;
     }
     return row;
+  };
+  // einzelne Zelle im Graubild (ohne Schwarz-Weiß-Umwandlung) nachlesen – liest Ziffern oft sicherer
+  const cellRead = async (a, b, box, kind) => {
+    if (!box) return null;
+    const c = ip.pad(ip.crop(page, Math.floor(box.x0 - 14), a + 4, Math.ceil(box.x1 + 14), b - 4), 20, 255);
+    const o = await ocr(c, 7);
+    for (const w of o.words) {
+      const t = strip(w.text);
+      const v = kind === "datum" ? (RE_DATE.test(t) ? parseDate(t) : null) : cellAmount(t);
+      if (v != null && w.conf >= 80) return v;
+    }
+    return null;
   };
   const vote = vals => { // häufigster Wert (bei Gleichstand der erste), einig = alle gleich
     const c = new Map(); vals.forEach(v => c.set(JSON.stringify(v ?? null), (c.get(JSON.stringify(v ?? null)) || 0) + 1));
@@ -108,27 +122,38 @@ async function readAntrag(page, pageText, ocr) {
   for (let r = 0; r < tab.length - 1; r++) {
     const a = tab[r], b = tab[r + 1];
     if (b - a < 25) continue;
-    const strip = ip.pad(ip.crop(clean, 0, a + 3, clean.w, b - 3), 15);
+    const band = ip.pad(ip.crop(clean, 0, a + 3, clean.w, b - 3), 15);
     const reads = [];
     for (const sc of [1, 1.5, 2]) {
-      const img = sc === 1 ? strip : ip.resize(strip, Math.round(strip.w * sc), Math.round(strip.h * sc));
+      const img = sc === 1 ? band : ip.resize(band, Math.round(band.w * sc), Math.round(band.h * sc));
       reads.push(parseRow((await ocr(img, 6)).words, sc));
     }
+    const posOf = f => reads.map(x => x.pos[f]).find(Boolean);
+    // Zelllesung im Graubild gilt als vierte, bei gültigem Ergebnis entscheidende Lesung
+    const zelle = {};
+    for (const f of ["datum", ...KATS]) {
+      if (!reads.some(x => (f === "datum" ? x.datum : x.betraege[f]) != null)) continue;
+      zelle[f] = await cellRead(a, b, posOf(f), f);
+    }
+    const voteF = (vals, cell) => {
+      const v = vote(cell != null ? [...vals, cell] : vals);
+      return cell != null ? { value: cell, einig: v.einig } : v;
+    };
     const kats = KATS.filter(k => reads.some(x => x.betraege[k] != null));
     if (!kats.length) continue;
     const nr = vote(reads.map(x => x.nr)).value;
     if (reads.some(x => x.nr === "SUMMEN") || nr === "SUMMEN") {
       for (const k of kats) {
-        const v = vote(reads.map(x => x.betraege[k]));
+        const v = voteF(reads.map(x => x.betraege[k]), zelle[k]);
         if (v.value == null) continue;
         res.summen[k] = v.value;
         if (!v.einig || Math.min(...reads.map(x => x.conf[k] ?? 100)) < UNSICHER_CONF) res.unsicher.push("summe_" + k);
       }
       continue;
     }
-    const dat = vote(reads.map(x => x.datum));
+    const dat = voteF(reads.map(x => x.datum), zelle.datum);
     for (const kat of kats) {
-      const v = vote(reads.map(x => x.betraege[kat]));
+      const v = voteF(reads.map(x => x.betraege[kat]), zelle[kat]);
       if (v.value == null) continue;
       const confs = reads.map(x => x.conf[kat]).filter(c => c != null);
       res.zeilen.push({ nr: nr || String(res.zeilen.length + 1), datum: dat.value, kat, betrag: v.value,

@@ -25,9 +25,8 @@ jobs:
         run: node test/pruefung.test.js
 
       - name: Auslesen mit tesseract.js testen (wie in der App)
-        timeout-minutes: 15
-        env:
-          OCR_DEBUG: "1"
+        timeout-minutes: 10
+        shell: bash
         run: |
           node test/auslesen.test.js --tjs
           node test/durchlauf.test.js --tjs

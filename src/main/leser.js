@@ -99,6 +99,8 @@ class Leser {
     P.syncKlienten(this.S);
   }
 
+  async close() { if (this.engine) { await this.engine.close(); this.engine = null; } }
+
   // erneut lesen, optional mit vorgegebenem Typ ("antrag" | "rechnung")
   reread(id, typ) {
     const d = this.S.docs[id]; if (!d) return;

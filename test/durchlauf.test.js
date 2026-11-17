@@ -54,4 +54,5 @@ const P = require("../src/core/pruefung");
   store.save(true);
   assert.ok(fs.existsSync(path.join(dir, "state.json")));
   console.log("\n✓ Durchlauf erfolgreich (Daten in " + dir + ")");
-})().catch(e => { console.error(e); process.exitCode = 1; });
+})().catch(e => { console.error(e); process.exitCode = 1; })
+  .finally(() => setTimeout(() => process.exit(), 500)); // Texterkennung im Hintergrund beenden
