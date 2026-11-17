@@ -186,13 +186,25 @@ function renderKlienten(m) {
   const ci = S.clients.indexOf(c);
   $$("[data-cf]").forEach(inp => inp.onchange = () => { set(["clients", ci, inp.dataset.cf], inp.value.trim()); render(); });
   $$("tr[data-aid]").forEach(tr => tr.onclick = () => openDoc(tr.dataset.aid));
+  $("#delClient").onclick = () => {
+    const rc = R.client[c.id] || { antraege: [] };
+    const rechn = [...new Set(R.links.filter(l => rc.antraege.includes(l.antragId)).map(l => l.docId))];
+    const text = rc.antraege.length
+      ? `Klient ${c.nr} ${c.name} löschen? Dabei werden auch seine ${rc.antraege.length} Antrag/Anträge und ${rechn.length} zugeordnete Rechnung(en) dieses Prüfjahres gelöscht. Hinweis: Auch ein ausgeschiedenes Mitglied gehört für das Jahr, in dem es Anträge gestellt hat, noch in die Prüfung.`
+      : `Klient ${c.nr} ${c.name} aus der Liste löschen?`;
+    confirmBox(text, async () => {
+      for (const id of [...rc.antraege, ...rechn]) { delete S.docs[id]; await window.api.removeDoc(id); }
+      set(["clients", S.clients.indexOf(c)], undefined);
+      view.clientId = null; render(); toast("Klient gelöscht");
+    });
+  };
 }
 function clientDetail(c) {
   const rc = R.client[c.id] || { antraege: [], status: "none" };
   const as = rc.antraege.map(doc).sort((a, b) => (a.daten.datum || "").localeCompare(b.daten.datum || ""));
   return `
   <div class="card">
-    <div class="row" style="justify-content:space-between;margin-bottom:12px"><h2>${esc(c.name) || "Klient " + esc(c.nr)}</h2>${badge(rc.status)}</div>
+    <div class="row" style="justify-content:space-between;margin-bottom:12px"><h2>${esc(c.name) || "Klient " + esc(c.nr)}</h2><div class="row">${badge(rc.status)}<button class="small danger" id="delClient">Klient löschen</button></div></div>
     <div class="grid" style="grid-template-columns:140px 1fr 1.4fr">
       <div><label>Mitgliedsnummer</label><input value="${esc(c.nr)}" disabled></div>
       <div><label>Name</label><input data-cf="name" value="${esc(c.name)}"></div>

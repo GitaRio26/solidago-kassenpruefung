@@ -51,7 +51,10 @@ function classify(text) {
 
 // ---------- Antrag ----------
 async function readAntrag(page, pageText, ocr) {
-  const { clean, rowLines: tab } = ip.analyseTable(page);
+  // Tabelle an ihrem Gitter begradigen (unabhängig vom Blattrand); sonst die ganze Seite verwenden
+  const rt = ip.rectifyTable(page);
+  const timg = rt ? rt.table : page;
+  const { clean, rowLines: tab, colLines } = ip.analyseTable(timg);
   const res = { datum: null, mitglied: null, absender: null, name: null, gesamt: null, zeilen: [], summen: {}, unsicher: [], conf: {} };
   const head1 = parseKopf(pageText);
   Object.assign(res, head1.werte); res.conf = head1.conf;
@@ -60,8 +63,9 @@ async function readAntrag(page, pageText, ocr) {
   const t0 = tab[0], t1 = tab[tab.length - 1];
 
   // Kopf (oberhalb der Tabelle) noch einmal vergrößert lesen und vergleichen
-  if (t0 > 100) {
-    const hb = ip.adaptiveThreshold(ip.crop(page, 0, 0, page.w, t0), 31, 12);
+  const kopfEnde = Math.round(rt ? Math.min(rt.quad[0][1], rt.quad[1][1]) : t0);
+  if (kopfEnde > 100) {
+    const hb = ip.adaptiveThreshold(ip.crop(page, 0, 0, page.w, kopfEnde), 31, 12);
     const head2 = parseKopf(await ocr(ip.resize(hb, Math.round(hb.w * 1.5), Math.round(hb.h * 1.5)), 6));
     for (const f of ["datum", "mitglied", "name"]) {
       const a = res[f], b = head2.werte[f];
@@ -77,11 +81,24 @@ async function readAntrag(page, pageText, ocr) {
     const k = w.text.toUpperCase().replace(/[^A-Z]/g, "");
     if (KATS.includes(k) && !(k in heads)) heads[k] = w.left + Math.trunc(w.width / 2);
   }
-  const known = Object.entries(heads).map(([k, x]) => [KATS.indexOf(k), x]).sort((a, b) => a[0] - b[0]);
-  if (known.length < 2) { res.unsicher.push("spalten"); finishUnsicher(res); return res; }
-  const [i0, x0] = known[0], [i1, x1] = known[known.length - 1], step0 = (x1 - x0) / (i1 - i0);
-  KATS.forEach((k, i) => { if (!(k in heads)) heads[k] = Math.trunc(x0 + (i - i0) * step0); });
-  const centers = KATS.map(k => heads[k]), step = (centers[5] - centers[0]) / 5;
+  // Spaltenmitten: bevorzugt aus den senkrechten Gitterlinien (Formular: 9 Linien = 8 Spalten,
+  // die letzten 6 sind PRAEV … AHMIT), sonst über die erkannten Kopfwörter
+  let centers = null;
+  const cl = colLines.filter((x, i, a) => i === 0 || x - a[i - 1] > timg.w * 0.03);
+  if (cl.length >= 9) {
+    const last = cl.slice(-7); // 7 Linien begrenzen die 6 Betragsspalten
+    const widths = last.slice(1).map((x, i) => x - last[i]), avg = widths.reduce((a, b) => a + b, 0) / 6;
+    if (widths.every(wd => wd > avg * 0.6 && wd < avg * 1.4)) centers = widths.map((wd, i) => Math.round(last[i] + wd / 2));
+  }
+  if (!centers) {
+    const known = Object.entries(heads).map(([k, x]) => [KATS.indexOf(k), x]).sort((a, b) => a[0] - b[0]);
+    if (known.length < 2) { res.unsicher.push("spalten"); finishUnsicher(res); return res; }
+    const [i0, x0] = known[0], [i1, x1] = known[known.length - 1], step0 = (x1 - x0) / (i1 - i0);
+    KATS.forEach((k, i) => { if (!(k in heads)) heads[k] = Math.trunc(x0 + (i - i0) * step0); });
+    centers = KATS.map(k => heads[k]);
+  }
+  const step = (centers[5] - centers[0]) / 5;
+  if (process.env.REC_DEBUG) console.error("Tabelle", timg.w, timg.h, "Zeilen", tab.join(","), "Spalten", cl.join(","), "Mitten", centers.join(","));
 
   // jede Tabellenzeile als Streifen lesen – in drei Vergrößerungen. Weichen die Lesungen
   // voneinander ab, gilt die Mehrheit und die Stelle wird zur Kontrolle markiert.
@@ -103,16 +120,39 @@ async function readAntrag(page, pageText, ocr) {
     return row;
   };
   // einzelne Zelle im Graubild (ohne Schwarz-Weiß-Umwandlung) nachlesen – liest Ziffern oft sicherer
+  // Zellgrenzen aus den senkrechten Gitterlinien (falls erkannt)
+  const zellBox = f => {
+    if (cl.length < 9) return null;
+    const n = cl.length, i = f === "datum" ? n - 8 : n - 7 + KATS.indexOf(f);
+    return { x0: cl[i] + 6, x1: cl[i + 1] - 6, exakt: true };
+  };
+  // Anteil dunkler Punkte in einer Zelle (ohne Gitterlinien) – leere Zellen überspringen
+  const tinte = (a, b, box) => {
+    let n = 0, t = 0;
+    for (let y = a + 6; y < b - 6; y++) for (let x = Math.round(box.x0 + 4); x < box.x1 - 4; x++) { t++; if (clean.d[y * clean.w + x] < 128) n++; }
+    return t ? n / t : 0;
+  };
   const cellRead = async (a, b, box, kind) => {
     if (!box) return null;
-    const c = ip.pad(ip.crop(page, Math.floor(box.x0 - 14), a + 4, Math.ceil(box.x1 + 14), b - 4), 20, 255);
-    const o = await ocr(c, 7);
-    for (const w of o.words) {
-      const t = strip(w.text);
-      const v = kind === "datum" ? (RE_DATE.test(t) ? parseDate(t) : null) : cellAmount(t);
-      if (v != null && w.conf >= 80) return v;
+    const m = box.exakt ? -4 : 14;
+    const c = ip.crop(timg, Math.floor(box.x0 - m), a + 5, Math.ceil(box.x1 + m), b - 5);
+    // Zelle für sich in Schwarz-Weiß (gut bei grauem Papier) in drei Größen lesen, dazu das Graubild;
+    // es gilt der häufigste gültige Wert
+    const sw = ip.adaptiveThreshold(c, 31, 12), up = ip.resize(c, Math.round(c.w * 1.5), Math.round(c.h * 1.5));
+    const varianten = [sw, ip.resize(sw, sw.w * 2, sw.h * 2), ip.adaptiveThreshold(up, 31, 12), c];
+    const werte = [];
+    for (const v of varianten) {
+      const o = await ocr(ip.pad(v, 20, 255), 7);
+      for (const w of o.words) {
+        const t = strip(w.text);
+        const val = kind === "datum" ? (RE_DATE.test(t) ? parseDate(t) : null) : cellAmount(t);
+        if (val != null && w.conf >= 50) { werte.push(val); break; }
+      }
     }
-    return null;
+    if (!werte.length) return null;
+    const n = new Map(); werte.forEach(v => n.set(v, (n.get(v) || 0) + 1));
+    const [value, gewicht] = [...n.entries()].sort((x, y) => y[1] - x[1])[0];
+    return { value, gewicht };
   };
   const vote = vals => { // häufigster Wert (bei Gleichstand der erste), einig = alle gleich
     const c = new Map(); vals.forEach(v => c.set(JSON.stringify(v ?? null), (c.get(JSON.stringify(v ?? null)) || 0) + 1));
@@ -132,15 +172,30 @@ async function readAntrag(page, pageText, ocr) {
     // Zelllesung im Graubild gilt als vierte, bei gültigem Ergebnis entscheidende Lesung
     const zelle = {};
     for (const f of ["datum", ...KATS]) {
-      if (!reads.some(x => (f === "datum" ? x.datum : x.betraege[f]) != null)) continue;
-      zelle[f] = await cellRead(a, b, posOf(f), f);
+      const gefunden = reads.some(x => (f === "datum" ? x.datum : x.betraege[f]) != null);
+      const zb = zellBox(f);
+      if (!gefunden && !(zb && tinte(a, b, zb) > 0.015)) continue;
+      zelle[f] = await cellRead(a, b, zb || posOf(f), f);
+      if (zelle[f] == null && zb && posOf(f)) zelle[f] = await cellRead(a, b, posOf(f), f);
+      if (!gefunden && zelle[f] != null) { // nur die Zelllesung hat etwas gefunden -> zur Kontrolle markieren
+        if (f === "datum") reads[0].datum = zelle[f].value; else reads[0].betraege[f] = zelle[f].value;
+        reads[0].conf[f] = 0;
+      }
     }
-    const voteF = (vals, cell) => {
-      const v = vote(cell != null ? [...vals, cell] : vals);
-      return cell != null ? { value: cell, einig: v.einig } : v;
-    };
     const kats = KATS.filter(k => reads.some(x => x.betraege[k] != null));
+    if (process.env.REC_DEBUG) console.error("Zeile", r, a, b, JSON.stringify(reads.map(x => [x.nr, x.datum, x.betraege])), JSON.stringify(zelle));
     if (!kats.length) continue;
+    // Abstimmung: jede Streifen-Lesung 1 Stimme, die Zelllesung so viele Stimmen wie ihre Varianten
+    // übereinstimmen; bei Gleichstand gewinnt die Zelllesung. Uneinigkeit -> zur Kontrolle markieren.
+    const voteF = (vals, cell) => {
+      const st = new Map();
+      for (const v of vals) if (v != null) st.set(v, (st.get(v) || 0) + 1);
+      if (cell) st.set(cell.value, (st.get(cell.value) || 0) + cell.gewicht + 0.5);
+      if (!st.size) return { value: null, einig: false };
+      const sorted = [...st.entries()].sort((x, y) => y[1] - x[1]);
+      return { value: sorted[0][0], einig: st.size === 1 && vals.every(v => v != null) };
+    };
+
     const nr = vote(reads.map(x => x.nr)).value;
     if (reads.some(x => x.nr === "SUMMEN") || nr === "SUMMEN") {
       for (const k of kats) {
@@ -171,7 +226,19 @@ function parseKopf(pt) {
   // "Mitgliedsnummer", auch bei Lesefehlern wie "Mitgledsnummer" oder "Mitglieds-Nr."
   m = /Mitgl\w*\s*[-.]?\s*(?:nr\.?|nummer)?\s*[:.;]?\s*(\d{1,6})\b/i.exec(full) || /Mi\w{0,3}gl\w*\D{0,25}?(\d{2,6})\b/i.exec(full);
   if (m) { werte.mitglied = m[1]; conf.mitglied = confOf(pt.words, m[1]); }
-  m = /Absender\s*[:.;,]?\s*(.+)/i.exec(full);
+  const absW = pt.words.find(w => /^Absender/i.test(w.text));
+  if (absW) { // zweispaltiger Kopf: nur Wörter rechts unterhalb von "Absender" verwenden
+    const zeilen = new Map();
+    for (const w of pt.words) {
+      if (w.top <= absW.top - 5 || w.left < absW.left - 40 || w.top > absW.top + absW.height * 8) continue;
+      if (w === absW) continue;
+      const y = Math.round(w.top / (absW.height || 20));
+      if (!zeilen.has(y)) zeilen.set(y, []); zeilen.get(y).push(w);
+    }
+    const ls = [...zeilen.entries()].sort((a, b) => a[0] - b[0]).map(([, ws]) => ws.sort((a, b) => a.left - b.left).map(w => w.text).join(" ")).filter(l => /[A-Za-zÄÖÜäöü]{2}/.test(l));
+    if (ls.length) { werte.absender = ls.slice(0, 3).join(", "); werte.name = ls[0].split(",")[0].replace(/^[^A-Za-zÄÖÜäöü]+/, "").trim(); conf.name = confOf(pt.words, werte.name); }
+  }
+  m = !werte.name && /Absender\s*[:.;,]?\s*(.+)/i.exec(full);
   if (m) {
     werte.absender = m[1].replace(/^[^A-Za-zÄÖÜäöü]+/, "").trim();
     werte.name = werte.absender.split(",")[0].trim(); conf.name = confOf(pt.words, werte.name);
@@ -216,15 +283,20 @@ function readRechnung(pageText) {
   // Rechnungsbetrag: Stichworte in dieser Rangfolge, jeweils letzter Treffer
   const AMT = "(\\d{1,3}(?:\\.\\d{3})+,\\d{2}|\\d{1,5},\\d{2})";
   for (const kw of ["rechnungsbetrag", "gesamtbetrag", "endbetrag", "zu\\s*zahlen", "zahlbetrag", "gesamtsumme", "rechnungssumme", "summe", "gesamt", "betrag"]) {
-    const hits = [...t.matchAll(new RegExp(kw + "[^\\d\\n]{0,30}" + AMT, "gi"))];
-    if (hits.length) { const h = hits[hits.length - 1]; res.betrag = eur(h[1]); if (confOf(words, h[1]) < UNSICHER_CONF) res.unsicher.push("betrag"); break; }
+    // Prozentangaben (z. B. "enthält 19,00 % USt.") ausschließen; bevorzugt Betrag direkt hinter dem Stichwort
+    const hits = [...t.matchAll(new RegExp("(" + kw + ")([^\\d\\n]{0,30})" + AMT + "(?!\\s*%)", "gi"))].map(h => ({ amt: h[3], gap: h[2].replace(/[\\s:.€]/g, "").length }));
+    if (hits.length) {
+      const h = hits.reduce((b, x) => (x.gap <= b.gap ? x : b));
+      res.betrag = eur(h.amt); if (confOf(words, h.amt) < UNSICHER_CONF) res.unsicher.push("betrag"); break;
+    }
   }
-  res.alleBetraege = [...new Set(allAmounts(t))].sort((a, b) => a - b);
+  res.alleBetraege = [...new Set(allAmounts(t.replace(/\d{1,3},\d{2}\s*%/g, "")))].filter(x => x > 0).sort((a, b) => a - b);
   if (res.betrag == null && res.alleBetraege.length) { res.betrag = Math.max(...res.alleBetraege); res.unsicher.push("betrag"); }
 
   let best = 0;
   for (const [k, ws] of Object.entries(KAT_WORDS)) {
-    const n = ws.reduce((a, w) => a + low.split(w).length - 1, 0);
+    const aus = String(res.aussteller || "").toLowerCase();
+    const n = ws.reduce((a, w) => a + low.split(w).length - 1 + 3 * (aus.split(w).length - 1), 0);
     if (n > best) { best = n; res.kategorie = k; }
   }
   res.bezahlt = /betrag\s*(dankend\s*)?erhalten|bar\s*bezahlt|quittiert|betrag\s*bezahlt/i.test(t);

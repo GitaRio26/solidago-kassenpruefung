@@ -213,6 +213,16 @@ function dilateSquare(bin, r) {
   }
   return out;
 }
+// nur in einer Richtung verbreitern (rx: waagerecht, ry: senkrecht)
+function dilateAxis(bin, rx, ry) {
+  const { w, h, d } = bin, out = gray(w, h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let m = 0;
+    for (let j = -ry; j <= ry && !m; j++) { const yy = y + j; if (yy < 0 || yy >= h) continue; for (let i = -rx; i <= rx && !m; i++) { const xx = x + i; if (xx >= 0 && xx < w) m = d[yy * w + xx]; } }
+    out.d[y * w + x] = m;
+  }
+  return out;
+}
 function rowSums(bin) { const s = new Float64Array(bin.h); for (let y = 0; y < bin.h; y++) { let a = 0; for (let x = 0; x < bin.w; x++) a += bin.d[y * bin.w + x]; s[y] = a / 255; } return s; }
 function colSums(bin, y0 = 0, y1 = bin.h) { const s = new Float64Array(bin.w); for (let y = y0; y < y1; y++) for (let x = 0; x < bin.w; x++) s[x] += bin.d[y * bin.w + x] / 255; return s; }
 function peaks(arr, minval, gap) {
@@ -236,13 +246,67 @@ function pad(img, p, val = 255) {
   return out;
 }
 
+// Größte zusammenhängende Fläche in einem Schwarz-Weiß-Bild (255 = gesetzt) -> Eckpunkte + Größe
+function largestComponentQuad(bin) {
+  const { w, h, d } = bin, lab = new Int32Array(w * h), stack = new Int32Array(w * h);
+  let bestId = 0, bestN = 0, id = 0;
+  for (let s = 0; s < w * h; s++) {
+    if (lab[s] || !d[s]) continue;
+    id++; let sp = 0, n = 0; stack[sp++] = s; lab[s] = id;
+    while (sp) {
+      const p = stack[--sp], x = p % w; n++;
+      if (x > 0 && !lab[p - 1] && d[p - 1]) { lab[p - 1] = id; stack[sp++] = p - 1; }
+      if (x < w - 1 && !lab[p + 1] && d[p + 1]) { lab[p + 1] = id; stack[sp++] = p + 1; }
+      if (p >= w && !lab[p - w] && d[p - w]) { lab[p - w] = id; stack[sp++] = p - w; }
+      if (p < w * (h - 1) && !lab[p + w] && d[p + w]) { lab[p + w] = id; stack[sp++] = p + w; }
+    }
+    if (n > bestN) { bestN = n; bestId = id; }
+  }
+  if (!bestN) return null;
+  let tl, tr, br, bl, sMin = Infinity, sMax = -Infinity, dMin = Infinity, dMax = -Infinity, x0 = w, x1 = 0, y0 = h, y1 = 0;
+  for (let p = 0; p < w * h; p++) {
+    if (lab[p] !== bestId) continue;
+    const y = (p / w) | 0, x = p - y * w, s = x + y, dd = y - x;
+    if (s < sMin) { sMin = s; tl = [x, y]; } if (s > sMax) { sMax = s; br = [x, y]; }
+    if (dd < dMin) { dMin = dd; tr = [x, y]; } if (dd > dMax) { dMax = dd; bl = [x, y]; }
+    if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+  }
+  return { quad: [tl, tr, br, bl], n: bestN, box: [x0, y0, x1, y1] };
+}
+
+// Tabellengitter auf der Seite suchen und die Tabelle an ihren vier Ecken begradigen.
+// Funktioniert auch, wenn der Blattrand nicht gefunden wurde oder das Blatt leicht schräg/gewölbt liegt.
+function rectifyTable(page) {
+  const bin = adaptiveThreshold(page, 31, 12);
+  const inv = gray(page.w, page.h); for (let i = 0; i < inv.d.length; i++) inv.d[i] = 255 - bin.d[i];
+  const k = Math.max(30, Math.round(page.w / 40)); // kurze Linienstücke: tolerant gegen Schräglage
+  const hl = openHorizontal(inv, k), vl = openVertical(inv, k);
+  const grid = gray(page.w, page.h); for (let i = 0; i < grid.d.length; i++) grid.d[i] = hl.d[i] | vl.d[i];
+  const c = largestComponentQuad(dilateSquare(grid, 3));
+  if (!c) return null;
+  const [x0, y0, x1, y1] = c.box;
+  if (x1 - x0 < page.w * 0.4 || y1 - y0 < page.h * 0.08) return null; // zu klein für das Antragsgitter
+  // Rand um das Gitter lassen (oben mehr: dort steht die Kopfzeile mit PRAEV … AHMIT)
+  const mx = Math.round(page.w * 0.012), mTop = Math.round(page.h * 0.035), mBot = Math.round(page.h * 0.03);
+  const [tl, tr, br, bl] = c.quad;
+  const quad = [[tl[0] - mx, tl[1] - mTop], [tr[0] + mx, tr[1] - mTop], [br[0] + mx, br[1] + mBot], [bl[0] - mx, bl[1] + mBot]];
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const wq = (dist(quad[0], quad[1]) + dist(quad[3], quad[2])) / 2, hq = (dist(quad[0], quad[3]) + dist(quad[1], quad[2])) / 2;
+  const W = A4_W - 120, H = Math.round(W * hq / wq);
+  return { table: warpQuad(page, quad, W, H), quad };
+}
+
 // Tabellenanalyse wie antrag_auslesen.py: Gitterlinien finden, Linien aus dem Bild entfernen
 function analyseTable(page) {
   const bin = adaptiveThreshold(page, 31, 12);
   const inv = gray(page.w, page.h); for (let i = 0; i < inv.d.length; i++) inv.d[i] = 255 - bin.d[i];
   const { w, h } = inv;
-  const hl = openHorizontal(inv, Math.trunc(w / 12)), vl = openVertical(inv, 25);
-  const ys = peaks(rowSums(hl), w * 0.35, 10);
+  // vor der Liniensuche minimal "verdicken", damit leicht schräge oder gewölbte Linien durchgehend bleiben
+  const thickH = dilateAxis(inv, 0, 2), thickV = dilateAxis(inv, 2, 0);
+  const hl0 = openHorizontal(thickH, Math.trunc(w / 12)), vl0 = openVertical(thickV, 25);
+  const hl = gray(w, h), vl = gray(w, h);
+  for (let i = 0; i < hl.d.length; i++) { hl.d[i] = hl0.d[i] & inv.d[i]; vl.d[i] = vl0.d[i] & inv.d[i]; }
+  const ys = peaks(rowSums(hl0), w * 0.35, 10);
   const lines = gray(w, h); for (let i = 0; i < lines.d.length; i++) lines.d[i] = hl.d[i] | vl.d[i];
   const dil = dilateSquare(lines, 2);
   const clean = gray(w, h); for (let i = 0; i < clean.d.length; i++) clean.d[i] = 255 - (inv.d[i] & ~dil.d[i] & 255);
@@ -252,7 +316,9 @@ function analyseTable(page) {
     for (const y of ys.slice(1)) { const r = runs[runs.length - 1]; if (y - r[r.length - 1] < 100) r.push(y); else runs.push([y]); }
     tab = runs.reduce((a, b) => (b.length > a.length ? b : a));
   }
-  return { bin, clean, rowLines: tab };
+  let colLines = [];
+  if (tab.length >= 2) colLines = peaks(colSums(vl, tab[0], tab[tab.length - 1]), (tab[tab.length - 1] - tab[0]) * 0.35, 10);
+  return { bin, clean, rowLines: tab, colLines };
 }
 
-module.exports = { A4_W, A4_H, gray, fromRGBA, rotate, gaussianBlur, otsu, adaptiveThreshold, findPage, warpPage, warpQuad, resize, openHorizontal, openVertical, dilateSquare, peaks, crop, pad, analyseTable };
+module.exports = { A4_W, A4_H, gray, fromRGBA, rotate, rectifyTable, largestComponentQuad, gaussianBlur, otsu, adaptiveThreshold, findPage, warpPage, warpQuad, resize, openHorizontal, openVertical, dilateSquare, peaks, crop, pad, analyseTable };

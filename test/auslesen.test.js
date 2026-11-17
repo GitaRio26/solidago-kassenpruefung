@@ -9,7 +9,7 @@ const { recognize } = require("../src/core/recognize");
 const OCR = require("../src/core/ocr");
 
 async function load(file) {
-  const { data, info } = await sharp(file).rotate().greyscale().raw().toBuffer({ resolveWithObject: true });
+  const { data, info } = await sharp(file).rotate().resize(2600, 2600, { fit: "inside", withoutEnlargement: true }).greyscale().raw().toBuffer({ resolveWithObject: true });
   return ip.gray(info.width, info.height, new Uint8Array(data));
 }
 

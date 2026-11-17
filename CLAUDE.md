@@ -68,4 +68,6 @@ Der Nutzer hat echte Beispielfotos (Antrag Mitglied 723 vom 26.10.2026 mit 2 Zah
 - Zuordnung Rechnung ↔ Zeile: Betrag (Rechnungsbetrag, dann beliebiger Betrag), Teilsummen (bis 4 Rechnungen je Zeile), eine Rechnung für mehrere Zeilen; bevorzugt Rechnungen, die direkt nach dem Antrag hochgeladen wurden. Manuelle Zuordnung möglich.
 - PDFs werden in der Oberfläche mit pdf.js gerendert; mehrseitige Rechnungen / Folgeseiten werden zusammengefasst.
 - Tests: `test/pruefung.test.js`, `test/auslesen.test.js`, `test/durchlauf.test.js` (künstliche Testbilder in `test/fixtures`).
-- Offen: Test mit echten Fotos des Nutzers; Apotheken-Kassenzettel; Mac-Version; Code-Signatur (SmartScreen-Warnung).
+- 0.1.1: Mit echten Fotos (Antrag 723 + 2 Rechnungen) getestet und korrigiert: Tabelle wird am eigenen Gitter begradigt (Blattrand auf hellem Hintergrund oft nicht erkennbar), Spalten über die 9 senkrechten Gitterlinien, jede Zelle zusätzlich einzeln (Schwarz-Weiß je Zelle) gelesen und per Abstimmung kombiniert; Rechnungsbetrag ohne %-Angaben; Name im zweispaltigen Kopf; Klient löschen.
+- Echte Testfotos nur lokal (nicht im Repo).
+- Offen: Apotheken-Kassenzettel; Mac-Version; Code-Signatur (SmartScreen-Warnung).

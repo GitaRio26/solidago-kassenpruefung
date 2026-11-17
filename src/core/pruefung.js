@@ -132,6 +132,7 @@
       const B = (key, lvl, text, extra = {}) => ra.befunde.push(add({ key, lvl, text, ...base, ...extra }));
 
       if (!klientNr(a)) B(`klient:${a.id}`, "warn", "Mitgliedsnummer nicht erkannt – bitte im Antrag eintragen.");
+      if (!d.zeilen.length) B(`leer:${a.id}`, "warn", "Im Antrag wurden keine Tabellenzeilen erkannt – bitte den Antrag öffnen und prüfen (ggf. „Neu auslesen“).");
       // 1) Rechenprüfung des Antrags
       const kats = KAT_KEYS.filter(k => d.summen?.[k] != null || d.zeilen.some(z => z.kat === k));
       for (const k of kats) {
@@ -210,7 +211,7 @@
       const ra = res.antrag[a.id];
       for (const b of res.befunde) if (b.antragId === a.id && !ra.befunde.includes(b)) ra.befunde.push(b);
       const o = offen(ra.befunde);
-      ra.status = !a.daten.zeilen.length ? "none" : o.some(b => b.lvl === "err") ? "err" : o.some(b => b.lvl === "warn") ? "open" : "ok";
+      ra.status = o.some(b => b.lvl === "err") ? "err" : o.some(b => b.lvl === "warn") ? "open" : "ok";
       for (const z of a.daten.zeilen) {
         const zb = o.filter(b => b.zeileId === z.id && b.lvl !== "info");
         if (zb.some(b => b.lvl === "err")) ra.zeile[z.id].status = "err";
