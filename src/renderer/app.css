@@ -93,7 +93,10 @@ table.lines tr.open td{background:#fffaf0}
 table.lines tr.done td{background:#f3f8f3}
 table.lines .st{font-size:15px;text-align:center;width:26px}
 table.lines tfoot td{font-weight:700;padding:7px 4px;border-top:2px solid var(--line);border-bottom:none}
-table.lines tr.sumrow td{background:#f6f8f7;font-weight:600}
+table.lines tr.sumrow td{background:#f6f8f7;font-weight:600;padding:8px 4px}
+.sumgrid{display:grid;grid-template-columns:90px repeat(6,minmax(0,1fr));gap:4px 8px;align-items:center}
+.sumgrid .sh{font-size:11px;color:var(--muted);text-align:right;padding-right:6px}
+.sumgrid .sl{font-weight:700}
 .w-nr{width:44px}.w-dt{width:132px}.w-kat{width:92px}.w-amt{width:96px}
 .chips{display:flex;flex-wrap:wrap;gap:4px}
 .chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:20px;padding:2px 9px;font-size:12px;cursor:pointer;background:#fff;max-width:220px}

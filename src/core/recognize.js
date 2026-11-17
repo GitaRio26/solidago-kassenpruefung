@@ -124,22 +124,23 @@ async function readAntrag(page, pageText, ocr) {
   const zellBox = f => {
     if (cl.length < 9) return null;
     const n = cl.length, i = f === "datum" ? n - 8 : n - 7 + KATS.indexOf(f);
-    return { x0: cl[i] + 6, x1: cl[i + 1] - 6, exakt: true };
+    return { x0: cl[i] + 3, x1: cl[i + 1] - 3, exakt: true };
   };
   // Anteil dunkler Punkte in einer Zelle (ohne Gitterlinien) – leere Zellen überspringen
   const tinte = (a, b, box) => {
     let n = 0, t = 0;
-    for (let y = a + 6; y < b - 6; y++) for (let x = Math.round(box.x0 + 4); x < box.x1 - 4; x++) { t++; if (clean.d[y * clean.w + x] < 128) n++; }
+    for (let y = a + 6; y < b - 6; y++) for (let x = Math.round(box.x0 + 6); x < box.x1 - 6; x++) { t++; if (clean.d[y * clean.w + x] < 128) n++; }
     return t ? n / t : 0;
   };
   const cellRead = async (a, b, box, kind) => {
     if (!box) return null;
-    const m = box.exakt ? -4 : 14;
-    const c = ip.crop(timg, Math.floor(box.x0 - m), a + 5, Math.ceil(box.x1 + m), b - 5);
+    const m = box.exakt ? 0 : 14;
+    const c = ip.crop(timg, Math.floor(box.x0 - m), a + 2, Math.ceil(box.x1 + m), b - 2);
     // Zelle für sich in Schwarz-Weiß (gut bei grauem Papier) in drei Größen lesen, dazu das Graubild;
     // es gilt der häufigste gültige Wert
     const sw = ip.adaptiveThreshold(c, 31, 12), up = ip.resize(c, Math.round(c.w * 1.5), Math.round(c.h * 1.5));
-    const varianten = [sw, ip.resize(sw, sw.w * 2, sw.h * 2), ip.adaptiveThreshold(up, 31, 12), c];
+    const th = ip.otsu(c), ot = ip.gray(c.w, c.h); for (let i = 0; i < c.d.length; i++) ot.d[i] = c.d[i] > th ? 255 : 0;
+    const varianten = [sw, ip.resize(sw, sw.w * 2, sw.h * 2), ip.adaptiveThreshold(up, 31, 12), ot, c];
     const werte = [];
     for (const v of varianten) {
       const o = await ocr(ip.pad(v, 20, 255), 7);

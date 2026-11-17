@@ -270,7 +270,7 @@ function renderAntrag(m, a) {
               <td class="st">${st === "ok" ? "<span style='color:var(--green)'>✓</span>" : st === "err" ? "<span style='color:var(--red)'>✗</span>" : st === "open" ? "<span style='color:#e0a82e'>●</span>" : st === "done" ? "☑" : ""}</td>
               <td style="white-space:nowrap">${uns ? `<button class="ok" data-zok="${i}" title="Datum und Betrag stimmen">✓ stimmt</button>` : ""}<button class="icon" data-zdel="${i}" title="Zeile löschen">✕</button></td></tr>`;
           }).join("")}
-          <tr class="sumrow"><td colspan="2">SUMMEN</td><td colspan="2"><div class="row" style="gap:4px;flex-wrap:wrap">${KAT.filter(k => d.summen?.[k] != null || d.zeilen.some(z => z.kat === k)).map(k => { const u = (d.unsicher || []).includes("summe_" + k) && !a.bestaetigt?.["summe_" + k]; return `<span class="hint" style="white-space:nowrap">${k} <input data-sum="${k}" class="num ${u ? "unsicher" : ""}" style="width:80px" value="${fmtEUR(d.summen?.[k])}"></span>`; }).join("") || "–"}</div></td><td colspan="4"></td></tr>
+          <tr class="sumrow"><td colspan="8"><div class="sumgrid"><span class="sl"></span>${KAT.map(k => `<span class="sh" title="${esc(CATNAME[k])}">${k}</span>`).join("")}<span class="sl">SUMMEN</span>${KAT.map(k => { const u = (d.unsicher || []).includes("summe_" + k) && !a.bestaetigt?.["summe_" + k]; return `<input data-sum="${k}" class="num ${u ? "unsicher" : ""}" value="${fmtEUR(d.summen?.[k])}" placeholder="–">`; }).join("")}</div></td></tr>
           </tbody>
           <tfoot>
             <tr><td colspan="3">Summe Zeilen</td><td class="num">${fmtEUR(r.sZeilen)}</td><td class="sep">Summe lt. Rechnungen</td><td class="num">${fmtEUR(r.sBeleg)}</td><td colspan="2"></td></tr>
