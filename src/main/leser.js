@@ -105,7 +105,7 @@ class Leser {
   reread(id, typ) {
     const d = this.S.docs[id]; if (!d) return;
     if (typ) d.typManuell = typ;
-    d.status = "wartet"; d.bestaetigt = {};
+    d.status = "wartet"; d.bestaetigt = {}; delete d.folgeVon;
     this.enqueue(id); this.onChange();
   }
   remove(id) {

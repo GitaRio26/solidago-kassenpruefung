@@ -370,9 +370,9 @@ function renderBeleg(m, d) {
         <select id="zuo">
           <option value="" ${curVal === "" ? "selected" : ""}>automatisch${!d.zuordnung && l ? ` → ${linkText(l)}` : !d.zuordnung ? " (nichts Passendes gefunden)" : ""}</option>
           <option value="keine" ${curVal === "keine" ? "selected" : ""}>keiner Antragszeile zuordnen</option>
-          ${A.map(a => `<optgroup label="Mitglied ${esc(P.klientNr(a))} · Antrag vom ${fmtDate(a.daten.datum)}">${a.daten.zeilen.map(z => { const v = `${a.id}|${z.id}`; return `<option value="${v}" ${curVal === v ? "selected" : ""}>Zeile ${esc(z.nr)} · ${fmtDate(z.datum)} · ${z.kat} ${fmtEURc(z.betrag)}</option>`; }).join("")}</optgroup>`).join("")}
+          ${A.map(a => `<optgroup label="Mitglied ${esc(P.klientNr(a))} · Antrag vom ${fmtDate(a.daten.datum)}">${a.daten.zeilen.map(z => { const v = `${a.id}|${z.id}`; return `<option value="${v}" ${curVal === v ? "selected" : ""}>Zeile ${esc(z.nr)} · ${fmtDate(z.datum)} · ${z.kat} ${fmtEURc(z.betrag)}</option>`; }).join("") || `<option disabled>keine Zeilen erkannt – Antrag öffnen und „Neu auslesen“</option>`}</optgroup>`).join("")}
         </select>
-        <p class="hint" style="margin:6px 0 0">${l && l.auto ? "Automatisch über den Betrag zugeordnet." : d.zuordnung ? "Von Hand festgelegt." : ""} ${l ? `<a href="#" id="toAntrag">Antrag öffnen →</a>` : ""}</p>
+        <p class="hint" style="margin:6px 0 0">Bitte die passende <b>Zeile</b> des Antrags wählen (die fett gedruckten Antrags-Überschriften selbst sind nicht wählbar). ${l && l.auto ? "Automatisch über den Betrag zugeordnet." : d.zuordnung ? "Von Hand festgelegt." : ""} ${l ? `<a href="#" id="toAntrag">Antrag öffnen →</a>` : ""}</p>
       </div>
       <div class="card" style="margin-top:12px">
         <h3 style="margin-bottom:8px">Befunde</h3>
@@ -648,6 +648,11 @@ function renderDaten(m) {
       <div class="row"><button class="primary" id="exp">Sicherung speichern …</button><button id="imp">Sicherung laden …</button><button id="folder">Datenordner öffnen</button></div>
     </div>
     <div class="card">
+      <h3>Alle Belege neu auslesen</h3>
+      <p class="hint">Sinnvoll nach einem Update der App: Alle Fotos werden mit der neuen Version noch einmal gelesen. Bestätigte Stellen und Korrekturen an den Belegen gehen dabei verloren; „geklärt“-Häkchen und Bemerkungen bleiben.</p>
+      <button id="rereadAll">Alle neu auslesen</button>
+    </div>
+    <div class="card">
       <h3>Neues Prüfjahr</h3>
       <p class="hint">Löscht alle Belege und Prüfergebnisse. Vorher den Bericht als PDF und eine Sicherung speichern!</p>
       <div class="row"><button class="danger" id="newYearKeep">Neues Jahr – Klienten behalten</button><button class="danger" id="wipe">Alles löschen</button></div>
@@ -668,6 +673,13 @@ function renderDaten(m) {
   $("#exp").onclick = async () => { const p = await window.api.backup(); if (p) toast("Sicherung gespeichert: " + p); };
   $("#imp").onclick = () => confirmBox("Aktuelle Daten durch eine Sicherung ersetzen?", async () => { try { if (await window.api.restore()) { toast("Sicherung geladen"); } } catch (e) { toast("Fehler: " + e.message); } });
   $("#folder").onclick = () => window.api.openFolder();
+  $("#rereadAll").onclick = () => confirmBox("Alle Belege mit der aktuellen Version neu auslesen?", () => {
+    // Teile aus mehrseitigen PDFs entstehen beim Neu-Lesen wieder neu; alles andere in Eingangsreihenfolge neu lesen
+    const docs = Object.values(S.docs).sort((a, b) => a.seq - b.seq);
+    for (const d of docs) if (/:[1-9]\d*$/.test(d.hash || "")) { delete S.docs[d.id]; window.api.removeDoc(d.id); }
+    for (const d of docs) if (S.docs[d.id] && d.file) { d.folgeVon = undefined; window.api.reread(d.id); }
+    view.tab = "eingang"; render(); toast("Belege werden neu ausgelesen …");
+  });
   $("#newYearKeep").onclick = () => confirmBox("Alle Belege löschen und ein neues Prüfjahr beginnen? Klienten und Prüfer-Angaben bleiben erhalten.", async () => { await window.api.reset(true); toast("Neues Prüfjahr angelegt"); });
   $("#wipe").onclick = () => confirmBox("Wirklich ALLE Daten löschen?", async () => { await window.api.reset(false); });
   $("#demo").onclick = () => confirmBox("Aktuelle Daten durch Beispieldaten ersetzen?", async () => { await window.api.replaceAll(demoState()); view.tab = "pruefung"; toast("Beispieldaten geladen"); });
