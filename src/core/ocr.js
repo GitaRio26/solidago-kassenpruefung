@@ -46,17 +46,26 @@ function tessdataDir() {
   return cands.find(p => fs.existsSync(path.join(p, "deu.traineddata"))) || cands[cands.length - 1];
 }
 
+// Zeitbegrenzung, damit ein Hänger als Fehler sichtbar wird statt endlos zu warten
+function mitFrist(p, ms, was) {
+  let t; return Promise.race([p, new Promise((_, rej) => { t = setTimeout(() => rej(new Error(`Texterkennung: ${was} dauert zu lange (> ${ms / 1000} s)`)), ms); })]).finally(() => clearTimeout(t));
+}
 async function createTesseractJs({ cachePath } = {}) {
   const T = require("tesseract.js");
-  const worker = await T.createWorker("deu", T.OEM.LSTM_ONLY, {
-    langPath: tessdataDir(), gzip: false, cacheMethod: "none", cachePath: cachePath || undefined,
-    logger: () => {}, errorHandler: e => console.error("OCR:", e)
-  });
+  const debug = !!process.env.OCR_DEBUG;
+  const langPath = tessdataDir();
+  if (debug) console.log("OCR: tesseract.js", require("tesseract.js/package.json").version, "Sprachmodell aus", langPath);
+  const worker = await mitFrist(T.createWorker("deu", T.OEM.LSTM_ONLY, {
+    langPath, gzip: false, cacheMethod: "none", cachePath: cachePath || undefined,
+    logger: debug ? m => console.log("OCR:", m.status, m.progress != null ? Math.round(m.progress * 100) + "%" : "") : () => {}
+  }), 120000, "Start");
   let queue = Promise.resolve();
   const ocr = (img, psm = 6) => {
     const run = async () => {
       await worker.setParameters({ tessedit_pageseg_mode: String(psm) });
-      const { data } = await worker.recognize(encodeGray(img), {}, { tsv: true, blocks: true, text: false });
+      const t0 = Date.now();
+      const { data } = await mitFrist(worker.recognize(encodeGray(img), {}, { tsv: true, blocks: true, text: false }), 90000, "Seite lesen");
+      if (debug) console.log(`OCR: ${img.w}x${img.h} psm ${psm} in ${Date.now() - t0} ms, tsv=${!!data.tsv}`);
       if (data.tsv) return parseTSV(data.tsv);
       return fromBlocks(data.blocks || []);
     };
